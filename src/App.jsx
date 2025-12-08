@@ -1,19 +1,22 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useState, useEffect } from 'react'
 import './App.css'
-
+import Galaxy from "./Galaxy.jsx";
+import * as THREE from 'three';
 
 function App() {
-  
+  useEffect(() => {
+    
+    import("./earth.js");
+    
+     }, []);
 
   return (
     <>
-      <div id = 'root' style={{ width: '100%', height: '600px', position: 'relative' }}>
-
-  
-
-</div>
+      <div className="galaxy-root">
+        <Galaxy />
+      </div>
+      <div id="sphere-container"></div>
+      
     </>
   )
 }
