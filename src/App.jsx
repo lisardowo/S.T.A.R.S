@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import Galaxy from "./Galaxy.jsx";
-import * as THREE from 'three';
+
 
 function App() {
   useEffect(() => {
