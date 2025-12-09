@@ -13,7 +13,15 @@ function App() {
   return (
     <>
       <div className="galaxy-root">
-        <Galaxy />
+       < 
+        Galaxy
+        mouseRepulsion={false}
+        mouseInteraction={false}
+        density={2}
+        glowIntensity={0.5}
+        saturation={0.8}
+        hueShift={120}
+      />
       </div>
       <div id="sphere-container"></div>
       

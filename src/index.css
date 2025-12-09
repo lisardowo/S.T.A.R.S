@@ -12,5 +12,6 @@ html, body, #root {
   inset: 0;
   width: 100vw;
   height: 100vh; /* cover viewport */
+  z-index: 10;
   pointer-events: none; /* let background interactions pass if any */
 }

@@ -3,9 +3,9 @@
 .galaxy-container {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -1; /* behind UI */
+  width: 100%;
+  height: 100%;
+  z-index: 1; /* behind UI */
 }
 
 canvas.galaxy-canvas {
@@ -14,7 +14,7 @@ canvas.galaxy-canvas {
   height: 100% !important;
 }
 .galaxy-container {
-  width: 50%;
-  height: 50%;
+  width:100%;
+  height: 100%;
   position: relative;
 }

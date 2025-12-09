@@ -8,6 +8,7 @@ html, body, #root {
 }
 
 #sphere-container {
+  z-index: 10;
   width: 100%; /* Full width */
   height: 100%; /* Set a fixed height or use a percentage */
   position: relative; /* Ensure it can contain absolutely positioned children */

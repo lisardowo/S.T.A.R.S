@@ -1,6 +1,9 @@
 import * as THREE from "three";
-
-
+const disclaimer = "Esta es la version web publicada mediante onrender, dado a limitaciones tecnicas, \
+la comunicacion podria fallar con la API si ha pasado mucho tiempo desde su ultimo uso dando una apariencia del codigo no funcionando\
+Yakucode recomienda ampliamente correr la version instalada(personal) para asegurar la funcionalidad del sistema\
+las instrucciones las puede encontrar en el readme del repositorio original"
+alert(disclaimer);
 // Crear la escena
 const scene = new THREE.Scene();
 
