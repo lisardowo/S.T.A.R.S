@@ -1,5 +1,20 @@
+/* Full-screen Galaxy background */
+.galaxy-root,
 .galaxy-container {
+  position: fixed;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  z-index: 1; /* behind UI */
+}
+
+canvas.galaxy-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.galaxy-container {
+  width:100%;
   height: 100%;
   position: relative;
 }
