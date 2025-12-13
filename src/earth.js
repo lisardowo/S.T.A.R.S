@@ -27,7 +27,7 @@ renderer.setClearColor(0x000000, 0); // color de limpieza RGBA (alpha 0 = transp
 if (container) container.appendChild(renderer.domElement);
 
 
-//scene.add(sphere); // Agregar el cubo a la escena
+
 
 // Posicionar la cámara para que vea el cubo
 //camera.position.set = (0,0,3.5);
@@ -36,8 +36,9 @@ camera.position.z = 5
 // Usa rutas desde la carpeta public/ (Vite sirve /archivo.ext).
 const textureLoader = new THREE.TextureLoader();
 const colorMap = textureLoader.load("/04_rainbow1k.jpg"); // Colores de la superficie
-const elevMap = textureLoader.load("/01_earthbump1k.jpg"); // Relieve/altura (grises)
 const alphaMap = textureLoader.load("/02_earthspec1k.jpg"); // Especular/alpha
+
+// ------ ADAPTACION DEL SNIPPET DE BOBBYROE SOBRE https://github.com/bobbyroe/vertex-earth/tree/interactive ------
 
 const globeGroup = new THREE.Group();
 
@@ -45,18 +46,17 @@ scene.add(globeGroup)
 // Esfera guía en wireframe (opcional)
 // Cambia subdivisión (segundo parámetro) para más/menos detalle del wireframe.
 const geo = new THREE.IcosahedronGeometry(1, 10);
-const mat = new THREE.MeshBasicMaterial({ color: 0x202020, wireframe: true });
+const mat = new THREE.MeshBasicMaterial({ color : "rgba(174, 171, 171, 0.8)", wireframe: true });
 const wireSphere = new THREE.Mesh(geo, mat);
 globeGroup.add(wireSphere);
 
 // Globo como nube de puntos con shaders (sin OrbitControls ni starfield).
-// detail: subdivisión de la malla base (más alto = más puntos).
-const detail = 120;
+// detail: cuantos puntos(calidad) tiene la textura de los continentes
+const detail = 60;
 const pointsGeo = new THREE.IcosahedronGeometry(1, detail);
 
 const vertexShader = `
   uniform float size;
-  uniform sampler2D elevTexture;
 
   varying vec2 vUv;
   varying float vVisible;
@@ -64,11 +64,9 @@ const vertexShader = `
   void main() {
     vUv = uv;
     vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-    float elv = texture2D(elevTexture, vUv).r;
     vec3 vNormal = normalMatrix * normal;
     vVisible = step(0.0, dot( -normalize(mvPosition.xyz), normalize(vNormal)));
-    // Desplazamiento por relieve (0.35 * elv). Ajusta este factor si deseas más/menos relieve.
-    mvPosition.z += 0.35 * elv;
+   
     gl_PointSize = size;
     gl_Position = projectionMatrix * mvPosition;
   }
@@ -87,12 +85,14 @@ const fragmentShader = `
     gl_FragColor = vec4(color, alpha);
   }
 `;
+
 const uniforms = {
   size: { value: 4.0 }, // tamaño de cada punto (sube/baja para más grande/pequeño)
   colorTexture: { value: colorMap }, // mapa de color
-  elevTexture: { value: elevMap }, // mapa de relieve
+  
   alphaTexture: { value: alphaMap } // mapa para transparencia/especular
 };
+
 const pointsMat = new THREE.ShaderMaterial({
   uniforms,
   vertexShader,
