@@ -5,21 +5,30 @@ def mathematicalRounding(x: float) -> int:
     # Rounding function used to normalize the hops in the interplane - sgn(x) * floor(|x| + 1/2)
     return int(math.copysign(1, x) * math.floor(abs(x) + 0.5))
 
-def RANN_Diference(source:float , destination:float) -> float:
+def RAAN_Delta(source:float , destination:float) -> float:
     #RAAN - Right Ascension of Ascending Node
     '''
     Number of interplane hops depends on RAAN difference (RAAN_delta) of the obtis where source annd destination nodes are locatede
     Given a source - destination pair (source(Y2), destination(Y1)) difference shall be calculated as:
     '''
     
-    return abs((source - destination) % (2 * math.pi))
+    return abs((destination - source) % (2 * math.pi))
 
-def eastANDwest_Hops(RANN_Delta: float, Omega_Delta: float) -> dict:
+def phaseDelta( NumberOfSatelites: int, NumberOfPlanes: int, phase: int) -> float:
     """
-    Determines the cuantity of hops neded to reach destination taking both weast and east direction
+    Phase angle difference between adjacent planes
     """
-    Hops_west = mathematicalRounding((2 * math.pi - RANN_Delta) / Omega_Delta) # Eq 12
-    Hops_east = mathematicalRounding(RANN_Delta / Omega_Delta) # Eq 13
+    totalSatelites = NumberOfPlanes * NumberOfSatelites
+      # Eq 8
+    return (((2 * math.pi) * phase) / totalSatelites)  # Eq 9
+
+def eastANDwest_Hops(RAAN_Delta: float, NumberOfPlanes: int) -> dict:
+    """
+    Determines the cuantity of hops neded to reach destination taking both west and east direction
+    """
+    Omega_Delta = (2 * math.pi) / NumberOfPlanes  # Eq 11
+    Hops_west = mathematicalRounding((2 * math.pi - RAAN_Delta) / Omega_Delta) # Eq 12
+    Hops_east = mathematicalRounding(RAAN_Delta / Omega_Delta) # Eq 13
     
     return {'west': Hops_west, 'east': Hops_east}
 
@@ -31,12 +40,14 @@ def phaseAngleNormalization(Destinylatitude: float, OriginLatitude: float, Hops_
     westLatitude_delta = (Destinylatitude - OriginLatitude + Hops_west * phase_delta) % (2 * math.pi) # Eq 16
     return eastLatitude_delta, westLatitude_delta
 
-def FourDirectionsHops(eastLatitude_delta: float, westLatitude_delta: float, Phi_delta: float) -> dict: #TODO cambiar nombre 
+
+
+def CardinalDirectionsHops(eastLatitude_delta: float, westLatitude_delta: float, NumberOfSatelites: float) -> dict: 
     """
     Computes the hops for each cardinal direction
     round the hops to normalize the hops
     """
-   
+    Phi_delta = (2 * math.pi) / NumberOfSatelites
     hops: dict[str, float] = {}
     hops['north_west'] = abs(westLatitude_delta / Phi_delta)      # Eq 17
     hops['north_east'] = abs(eastLatitude_delta / Phi_delta)      # Eq 18
@@ -58,8 +69,6 @@ def minimunHopCount(Horizontal_hops: dict, Vertical_hops: dict) -> int:
         Horizontal_hops['east'] + Vertical_hops['south_east']
         
     ]
-    return min(options)
-    
-    #TODO Corregir typos, unificar nombres
-    #TODO agregar funciones -> phase_delta, phi_delta, omega_delta (el progama no funcionara sin tales)
-    #TODO probar todo el modulo con test cases
+    #return min(options)
+    return min(options, key=lambda x: x['total']) #debug return
+   
