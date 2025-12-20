@@ -57,33 +57,29 @@ def CardinalDirectionsHops(eastLatitude_delta: float, westLatitude_delta: float,
     
     return {k: mathematicalRounding(v) for k, v in hops.items()}
 
-def GenerateConections(SourcePlane, SourceSatelite, DestinyPlane, DestinySatelite, strategy, NumberPlanes, NumberSatelites) -> list[str]:
-   
+
+def GenerateConections(SourcePlane, SourceSatelite, strategy, NumberPlanes, NumberSatelites, h_hops, v_hops) -> list[str]:
     enlaces = []
     CurrentPlane, CurrentSatelite = SourcePlane, SourceSatelite
     
-    # Determinamos el paso basándonos en la estrategia de la ruta
     StepPlane = 1 if "E" in strategy else -1
     StepSatelite = 1 if "N" in strategy else -1
-
-    # Movimiento Horizontal (Inter-plano)
-    while CurrentPlane != DestinyPlane:
+    # En lugar de comparar el ID del plano, usamos el número de saltos calculados
+    # Esto evita que el bucle "se pierda" si el destino está detrás del origen
+    for _ in range(h_hops):
         NextPlane = (CurrentPlane + StepPlane) % NumberPlanes
-        enlaces.append(f"S-{CurrentPlane}_{CurrentSatelite}-S{NextPlane}_{CurrentSatelite}")
+        enlaces.append(f"S{CurrentPlane}_{CurrentSatelite}-S{NextPlane}_{CurrentSatelite}")
         CurrentPlane = NextPlane
         
-    # Movimiento Vertical (Intra-plano)
-    while CurrentSatelite != DestinySatelite:
+    for _ in range(v_hops):
         NextSatelite = (CurrentSatelite + StepSatelite) % NumberSatelites
         enlaces.append(f"S{CurrentPlane}_{CurrentSatelite}-S{CurrentPlane}_{NextSatelite}")
         CurrentSatelite = NextSatelite
-    
-    
+   
     return enlaces
 
 
-
-def GetOptimalPaths(sourceSatelite, sourcePlane, destinationSatelite, destinationPlane , Horizontal_hops: dict, Vertical_hops: dict, SubOptimalPaths: int, NumberSatelites, NumberPlanes) -> list: #TODO Modificar SubOptimalPaths para que sea obtenido dinacmicamente
+def GetOptimalPaths(sourceSatelite, sourcePlane , Horizontal_hops: dict, Vertical_hops: dict, NumberSatelites, NumberPlanes) -> list:
    
     raw_options = [
         {"estrategia": "NW", "hops": Horizontal_hops['west'] + Vertical_hops['north_west']},
@@ -98,10 +94,31 @@ def GetOptimalPaths(sourceSatelite, sourcePlane, destinationSatelite, destinatio
     rutas_candidatas = []
     
     
-    for i in range(min(SubOptimalPaths, len(sorted_paths))):
+    for i in range(min(3, len(sorted_paths))):
         path_data = sorted_paths[i]
+        strategy = path_data['estrategia']
 
-        conecctions = GenerateConections(sourceSatelite, sourcePlane, destinationSatelite, destinationPlane, path_data['estrategia'], NumberSatelites, NumberPlanes)
+        # Determinar saltos horizontales según dirección E/W de la estrategia
+        h_hops = Horizontal_hops['east'] if "E" in strategy else Horizontal_hops['west']
+
+        # Determinar saltos verticales según la componente N/S y E/W de la estrategia
+        v_key_map = {
+            'NW': 'north_west',
+            'SW': 'south_west',
+            'NE': 'north_east',
+            'SE': 'south_east',
+        }
+        v_hops = Vertical_hops[v_key_map[strategy]]
+
+        conecctions = GenerateConections(
+            sourcePlane,
+            sourceSatelite,
+            strategy,
+            NumberPlanes,
+            NumberSatelites,
+            h_hops,
+            v_hops,
+        )
         
         rutas_candidatas.append({
             "id": i + 1,
@@ -112,4 +129,3 @@ def GetOptimalPaths(sourceSatelite, sourcePlane, destinationSatelite, destinatio
 
     return rutas_candidatas
 
-GenerateConections(0, 0, 2, 2, "NW", 4, 4)

@@ -8,12 +8,12 @@ def run_test():
     start_time = time.time()
     
     print("-" * 60)
-    print("INICIO DE DIAGNÓSTICO DE FORMULAS DE ENRUTAMIENTO SATELITAL - while debug")
+    print("INICIO DE DIAGNÓSTICO DE FORMULAS DE ENRUTAMIENTO SATELITAL - for debug")
     print("-" * 60)
 
     # 1. Configuración del Escenario (Basado en Iridium según Tabla 1 del documento)
     #[cite: 538]: Iridium tiene 6 planos, 11 satélites por plano.
-    N_P = 6   # NumberOfPlanes
+    N_P = 6  # NumberOfPlanes
     N_S = 11  # NumberOfSatelites
     
     # Definimos Nodo Origen (Plano 0, Satélite 0) y Destino (Plano 3, Satélite 5)
@@ -70,7 +70,7 @@ def run_test():
 
     # E. Conteo Mínimo de Saltos [cite: 285]
     try:
-        min_total_hops = formulas.GetOptimalPaths(src_sat, src_plane, dst_sat, dst_plane, hops_h, hops_v, SubOptimalPaths=3, NumberSatelites=N_S, NumberPlanes=N_P) #TODO Modificar los argumentos -- Github Issues --
+        min_total_hops = formulas.GetOptimalPaths(src_sat, src_plane, hops_h, hops_v, NumberSatelites=N_S, NumberPlanes=N_P) #TODO Modificar los argumentos -- Github Issues --
         print(f"[5] TOTAL Mínimo de saltos requeridos (Hop Count): {min_total_hops}")
     except Exception as e:
         print(f"[!] Error en GetOptimalPaths: {e}")
