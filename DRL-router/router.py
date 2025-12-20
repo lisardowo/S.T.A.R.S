@@ -1,99 +1,175 @@
-import time
 import math
-import formulas
-inicio = time.time()
-# --- CONFIGURACIÓN DE LA CONSTELACIÓN (Ej. Iridium) ---
-# Según tabla 1 del paper [cite: 538]
-N_P = 6       # Número de planos
-N_S = 11      # Satélites por plano
-F = 1         # Factor de fase (asumido estándar para pruebas)
+import time
+import networkx as nx
+import matplotlib.pyplot as plt
+import formulas  
 
-# --- DEFINICIÓN DE SATÉLITES (Origen y Destino) ---
-# Posiciones en radianes (Plano/RAAN, Fase/Latitud)
-# Satélite A (Origen): Plano 0, Fase 0
-sat_source_RAAN = 0.0
-sat_source_lat = 0.0
+def run_test():
+    start_time = time.time()
+    
+    print("-" * 60)
+    print("INICIO DE DIAGNÓSTICO DE FORMULAS DE ENRUTAMIENTO SATELITAL - while debug")
+    print("-" * 60)
 
-# Satélite B (Destino): Plano 2 (aprox 2.09 rad), Fase casi opuesta (3.0 rad)
-# Esto debería forzar una ruta interesante (saltar planos y moverse en órbita)
-sat_dest_RAAN = (2 * math.pi / N_P) * 2  
-sat_dest_lat = 3.0
+    # 1. Configuración del Escenario (Basado en Iridium según Tabla 1 del documento)
+    #[cite: 538]: Iridium tiene 6 planos, 11 satélites por plano.
+    N_P = 6   # NumberOfPlanes
+    N_S = 11  # NumberOfSatelites
+    
+    # Definimos Nodo Origen (Plano 0, Satélite 0) y Destino (Plano 3, Satélite 5)
+    src_plane, src_sat = 0, 0
+    dst_plane, dst_sat = 3, 5
 
-print(f"--- INICIO DIAGNÓSTICO ---")
-print(f"Configuración: {N_P} planos, {N_S} sats/plano, Fase F={F}")
-print(f"Origen (RAAN, Lat): ({sat_source_RAAN:.2f}, {sat_source_lat:.2f})")
-print(f"Destino (RAAN, Lat): ({sat_dest_RAAN:.2f}, {sat_dest_lat:.2f})")
-print("-" * 30)
+    print(f"[*] Configuración de Constelación:")
+    print(f"    - Planos (N_P): {N_P}")
+    print(f"    - Satélites por plano (N_S): {N_S}")
+    print(f"    - Nodo Origen: P{src_plane}/S{src_sat}")
+    print(f"    - Nodo Destino: P{dst_plane}/S{dst_sat}")
+    print("-" * 60)
 
-# 1. Calcular Delta RAAN (Corrigiendo el orden de resta aquí para la prueba)
-# Nota: En tu formulas.py está (source - dest), debería ser (dest - source)
-raan_diff = formulas.RAAN_Delta(sat_source_RAAN, sat_dest_RAAN)
-print(f"1. Delta RAAN: {raan_diff:.4f} rad")
+    # 2. Conversión de índices discretos a ángulos (Física del problema)
+    # RAAN varía de 0 a 2pi entre planos. Phase varía de 0 a 2pi dentro del plano.
+    src_raan = src_plane * (2 * math.pi / N_P)
+    dst_raan = dst_plane * (2 * math.pi / N_P)
+    
+    # Simulación de fase (latitud argumental aproximada para la prueba)
+    src_lat = src_sat * (2 * math.pi / N_S)
+    dst_lat = dst_sat * (2 * math.pi / N_S)
 
-# 2. Calcular Delta de Fase (Delta f)
-delta_f = formulas.phaseDelta(N_S, N_P, F)
-print(f"2. Delta f (desfase inter-plano): {delta_f:.4f} rad")
+    # 3. Probando Fórmulas Paso a Paso
+    
+    # A. RAAN Delta [cite: 244]
+    raan_delta = formulas.RAAN_Delta(src_raan, dst_raan)
+    print(f"[1] RAAN Delta calculado: {raan_delta:.4f} rad")
 
-# 3. Saltos Horizontales (Inter-plano)
-h_hops = formulas.eastANDwest_Hops(raan_diff, N_P)
-print(f"3. Saltos Horizontales calculados: {h_hops}")
+    # B. Saltos Este/Oeste [cite: 252, 253]
+    # Nota: phaseDelta en tu archivo calcula la diferencia de fase entre planos adyacentes (Eq 9)
+    # Pero eastANDwest_Hops usa Omega_Delta interno.
+    hops_h = formulas.eastANDwest_Hops(raan_delta, N_P)
+    print(f"[2] Saltos Horizontales (Inter-plano):")
+    print(f"    - West Hops: {hops_h['west']}")
+    print(f"    - East Hops: {hops_h['east']}")
 
-# 4. Normalización de ángulos (Intra-plano)
-# Calcula cuánto se 'desajustó' la fase al moverse horizontalmente
-east_lat_delta, west_lat_delta = formulas.phaseAngleNormalization(
-    sat_dest_lat, sat_source_lat, h_hops['east'], h_hops['west'], delta_f
-)
+    # C. Normalización de Ángulo de Fase [cite: 264-267]
+    # Necesitamos el phase_delta (diferencia de fase entre satélites vecinos en planos adyacentes)
+    # Asumiremos phase index 1 para obtener la constante delta
+    p_delta = formulas.phaseDelta(N_S, N_P, 1) 
+    
+    east_lat_delta, west_lat_delta = formulas.phaseAngleNormalization(
+        dst_lat, src_lat, hops_h['east'], hops_h['west'], p_delta
+    )
+    print(f"[3] Delta de Latitud Normalizada:")
+    print(f"    - Vía Este: {east_lat_delta:.4f} rad")
+    print(f"    - Vía Oeste: {west_lat_delta:.4f} rad")
 
-# 5. Saltos Verticales (Intra-plano)
-# Calcula saltos necesarios hacia arriba/abajo para corregir el desajuste
-v_hops = formulas.CardinalDirectionsHops(east_lat_delta, west_lat_delta, N_S)
-print(f"5. Saltos Verticales calculados: {v_hops}")
+    # D. Saltos Cardinales (Intra-plano/Verticales) [cite: 271-274]
+    hops_v = formulas.CardinalDirectionsHops(east_lat_delta, west_lat_delta, N_S)
+    print(f"[4] Saltos Verticales Calculados (Intra-plano):")
+    for k, v in hops_v.items():
+        print(f"    - {k}: {v}")
 
-# 6. SELECCIÓN DE RUTA ÓPTIMA (Lógica mejorada para mostrar detalles)
-# Reconstruimos las opciones para poder imprimir cuál ganó
-opciones_detalladas = [
-    {
-        'camino': 'Oeste -> Noroeste (Arriba)',
-        'h_dir': 'west', 'v_dir': 'north_west',
-        'h_count': h_hops['west'], 'v_count': v_hops['north_west'],
-        'total': h_hops['west'] + v_hops['north_west']
-    },
-    {
-        'camino': 'Oeste -> Suroeste (Abajo)',
-        'h_dir': 'west', 'v_dir': 'south_west',
-        'h_count': h_hops['west'], 'v_count': v_hops['south_west'],
-        'total': h_hops['west'] + v_hops['south_west']
-    },
-    {
-        'camino': 'Este -> Noreste (Arriba)',
-        'h_dir': 'east', 'v_dir': 'north_east',
-        'h_count': h_hops['east'], 'v_count': v_hops['north_east'],
-        'total': h_hops['east'] + v_hops['north_east']
-    },
-    {
-        'camino': 'Este -> Sureste (Abajo)',
-        'h_dir': 'east', 'v_dir': 'south_east',
-        'h_count': h_hops['east'], 'v_count': v_hops['south_east'],
-        'total': h_hops['east'] + v_hops['south_east']
+    # E. Conteo Mínimo de Saltos [cite: 285]
+    try:
+        min_total_hops = formulas.GetOptimalPaths(src_sat, src_plane, dst_sat, dst_plane, hops_h, hops_v, SubOptimalPaths=3, NumberSatelites=N_S, NumberPlanes=N_P) #TODO Modificar los argumentos -- Github Issues --
+        print(f"[5] TOTAL Mínimo de saltos requeridos (Hop Count): {min_total_hops}")
+    except Exception as e:
+        print(f"[!] Error en GetOptimalPaths: {e}")
+        print("    (Consejo: Revisa que 'GetOptimalPaths' retorne un int, no un objeto lambda)")
+        return
+
+    execution_time = time.time() - start_time
+    print("-" * 60)
+    print(f"[*] Ejecución numérica completada en {execution_time:.6f} segundos")
+    print("-" * 60)
+"""
+    # 4. Visualización con NetworkX
+    print("[*] Generando visualización de la constelación y la ruta...")
+    plot_simulation(N_P, N_S, src_plane, src_sat, dst_plane, dst_sat, hops_h, hops_v)
+
+def plot_simulation(N_P, N_S, src_p, src_s, dst_p, dst_s, h_hops, v_hops):
+    # Crear grafo tipo Grid (Toroide para simular la vuelta al mundo)
+    G = nx.grid_2d_graph(N_P, N_S, periodic=True)
+    
+    pos = dict((n, n) for n in G.nodes())
+    
+    plt.figure(figsize=(12, 8))
+    
+    # Dibujar todos los nodos y aristas base
+    nx.draw_networkx_nodes(G, pos, node_color='lightgray', node_size=300)
+    nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3)
+    
+    # Determinar la mejor ruta para resaltarla
+    # Esto es una reconstrucción lógica basada en los resultados de tus fórmulas
+    # Calculamos el costo de las 4 opciones posibles
+    paths_costs = {
+        'West + NW': h_hops['west'] + v_hops['north_west'],
+        'West + SW': h_hops['west'] + v_hops['south_west'],
+        'East + NE': h_hops['east'] + v_hops['north_east'],
+        'East + SE': h_hops['east'] + v_hops['south_east']
     }
-]
+    
+    best_strategy = formulas.GetOptimalPaths(h_hops, v_hops, SubOptimalPaths=3)[0]
+    print(f"[*] Estrategia ganadora para visualización: {best_strategy}")
 
-# Elegir el mínimo basado en 'total'
-ganador = min(opciones_detalladas, key=lambda x: x['total'])
+    # Lógica simple para dibujar el camino (Pathfinding simulado basado en la estrategia)
+    path_nodes = [(src_p, src_s)]
+    curr_p, curr_s = src_p, src_s
+    
+    # Decodificar estrategia
+    direction = best_strategy.split(' + ')
+    h_dir = direction[0] # West o East
+    v_dir = direction[1] # NW, SW, NE, SE
+    
+    # 1. Moverse horizontalmente
+    steps_h = h_hops['west'] if h_dir == 'West' else h_hops['east']
+    for _ in range(steps_h):
+        if h_dir == 'West':
+            curr_p = (curr_p - 1) % N_P
+        else:
+            curr_p = (curr_p + 1) % N_P
+        path_nodes.append((curr_p, curr_s))
+        
+    # 2. Moverse verticalmente
+    # Nota: NW implica moverse al norte en satélites. SW al sur.
+    steps_v = 0
+    if v_dir == 'NW': steps_v = v_hops['north_west']
+    elif v_dir == 'SW': steps_v = v_hops['south_west']
+    elif v_dir == 'NE': steps_v = v_hops['north_east']
+    elif v_dir == 'SE': steps_v = v_hops['south_east']
+    
+    # Dirección vertical: Asumimos índices crecientes van al "Norte" (o Sur dependiendo convención)
+    # En grafos grid, y+1 es "arriba".
+    vertical_step = 1 if 'N' in v_dir else -1 # Simplificación visual
+    
+    for _ in range(steps_v):
+        curr_s = (curr_s + vertical_step) % N_S
+        path_nodes.append((curr_p, curr_s))
 
-print("-" * 30)
-print("--- RESULTADO FINAL ---")
-print(f"Ruta más corta (Saltos Totales): {ganador['total']}")
-print(f"Dirección General: {ganador['camino']}")
-print("Instrucciones:")
-print(f"  1. Moverse {ganador['h_count']} planos hacia {ganador['h_dir']}.")
-print(f"  2. Moverse {ganador['v_count']} posiciones en órbita hacia {ganador['v_dir']}.")
-print("-" * 30)
+    # Dibujar Camino
+    path_edges = list(zip(path_nodes, path_nodes[1:]))
+    nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='gold', width=3)
+    nx.draw_networkx_nodes(G, pos, nodelist=path_nodes, node_color='yellow', node_size=100)
 
-# Verificación de todas las combinaciones posibles (solicitado por usuario)
-print("Resumen de todas las rutas candidatas:")
-for opt in opciones_detalladas:
-    estado = "[ELEGIDO]" if opt == ganador else ""
-    print(f"  * {opt['camino']}: {opt['total']} saltos (H:{opt['h_count']} + V:{opt['v_count']}) {estado}")
-fin = time.time()
-print(f"--- FIN DIAGNÓSTICO (Tiempo total: {fin - inicio:.4f} segundos) ---")
+    # Dibujar Origen y Destino
+    nx.draw_networkx_nodes(G, pos, nodelist=[(src_p, src_s)], node_color='green', label='Source', node_size=500)
+    nx.draw_networkx_nodes(G, pos, nodelist=[(dst_p, dst_s)], node_color='red', label='Dest', node_size=500)
+
+    # Etiquetas
+    labels = {node: f"{node}" for node in G.nodes() if node in path_nodes or node == (src_p, src_s) or node == (dst_p, dst_s)}
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=8)
+
+    plt.title(f"Visualización de Ruta Satelital (Estrategia: {best_strategy})")
+    plt.xlabel("Planos Orbitales (Inter-plane)")
+    plt.ylabel("Satélites en Plano (Intra-plane)")
+    plt.legend(["Nodos", "Enlaces", "Ruta", "Saltos", "Origen", "Destino"])
+    plt.grid(True, linestyle='--', alpha=0.5)
+    
+    print("[*] Gráfico generado. Cerrar ventana para terminar.")
+    plt.show()
+
+if __name__ == "__main__":
+    run_test()
+#- ---- -- -- -- Debug code for formulas.py here - ---- -- -- --
+
+"""
+run_test()

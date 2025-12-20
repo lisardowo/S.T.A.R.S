@@ -47,3 +47,5 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+*.toml
+__pycache__/
