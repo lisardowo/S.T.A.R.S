@@ -1,175 +1,114 @@
-import math
-import time
-import networkx as nx
-import matplotlib.pyplot as plt
-import formulas  
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from formulas import GetOptimalPaths
+from consideraciones import TrainingFunction, PathDelay, PathThroughput, getAdjascencyMatrix, getNetworkState 
 
-def run_test():
-    start_time = time.time()
-    
-    print("-" * 60)
-    print("INICIO DE DIAGNÓSTICO DE FORMULAS DE ENRUTAMIENTO SATELITAL - for debug")
-    print("-" * 60)
-
-    # 1. Configuración del Escenario (Basado en Iridium según Tabla 1 del documento)
-    #[cite: 538]: Iridium tiene 6 planos, 11 satélites por plano.
-    N_P = 6  # NumberOfPlanes
-    N_S = 11  # NumberOfSatelites
-    
-    # Definimos Nodo Origen (Plano 0, Satélite 0) y Destino (Plano 3, Satélite 5)
-    src_plane, src_sat = 0, 0
-    dst_plane, dst_sat = 3, 5
-
-    print(f"[*] Configuración de Constelación:")
-    print(f"    - Planos (N_P): {N_P}")
-    print(f"    - Satélites por plano (N_S): {N_S}")
-    print(f"    - Nodo Origen: P{src_plane}/S{src_sat}")
-    print(f"    - Nodo Destino: P{dst_plane}/S{dst_sat}")
-    print("-" * 60)
-
-    # 2. Conversión de índices discretos a ángulos (Física del problema)
-    # RAAN varía de 0 a 2pi entre planos. Phase varía de 0 a 2pi dentro del plano.
-    src_raan = src_plane * (2 * math.pi / N_P)
-    dst_raan = dst_plane * (2 * math.pi / N_P)
-    
-    # Simulación de fase (latitud argumental aproximada para la prueba)
-    src_lat = src_sat * (2 * math.pi / N_S)
-    dst_lat = dst_sat * (2 * math.pi / N_S)
-
-    # 3. Probando Fórmulas Paso a Paso
-    
-    # A. RAAN Delta [cite: 244]
-    raan_delta = formulas.RAAN_Delta(src_raan, dst_raan)
-    print(f"[1] RAAN Delta calculado: {raan_delta:.4f} rad")
-
-    # B. Saltos Este/Oeste [cite: 252, 253]
-    # Nota: phaseDelta en tu archivo calcula la diferencia de fase entre planos adyacentes (Eq 9)
-    # Pero eastANDwest_Hops usa Omega_Delta interno.
-    hops_h = formulas.eastANDwest_Hops(raan_delta, N_P)
-    print(f"[2] Saltos Horizontales (Inter-plano):")
-    print(f"    - West Hops: {hops_h['west']}")
-    print(f"    - East Hops: {hops_h['east']}")
-
-    # C. Normalización de Ángulo de Fase [cite: 264-267]
-    # Necesitamos el phase_delta (diferencia de fase entre satélites vecinos en planos adyacentes)
-    # Asumiremos phase index 1 para obtener la constante delta
-    p_delta = formulas.phaseDelta(N_S, N_P, 1) 
-    
-    east_lat_delta, west_lat_delta = formulas.phaseAngleNormalization(
-        dst_lat, src_lat, hops_h['east'], hops_h['west'], p_delta
-    )
-    print(f"[3] Delta de Latitud Normalizada:")
-    print(f"    - Vía Este: {east_lat_delta:.4f} rad")
-    print(f"    - Vía Oeste: {west_lat_delta:.4f} rad")
-
-    # D. Saltos Cardinales (Intra-plano/Verticales) [cite: 271-274]
-    hops_v = formulas.CardinalDirectionsHops(east_lat_delta, west_lat_delta, N_S)
-    print(f"[4] Saltos Verticales Calculados (Intra-plano):")
-    for k, v in hops_v.items():
-        print(f"    - {k}: {v}")
-
-    # E. Conteo Mínimo de Saltos [cite: 285]
-    try:
-        min_total_hops = formulas.GetOptimalPaths(src_sat, src_plane, hops_h, hops_v, NumberSatelites=N_S, NumberPlanes=N_P) #TODO Modificar los argumentos -- Github Issues --
-        print(f"[5] TOTAL Mínimo de saltos requeridos (Hop Count): {min_total_hops}")
-    except Exception as e:
-        print(f"[!] Error en GetOptimalPaths: {e}")
-        print("    (Consejo: Revisa que 'GetOptimalPaths' retorne un int, no un objeto lambda)")
-        return
-
-    execution_time = time.time() - start_time
-    print("-" * 60)
-    print(f"[*] Ejecución numérica completada en {execution_time:.6f} segundos")
-    print("-" * 60)
-"""
-    # 4. Visualización con NetworkX
-    print("[*] Generando visualización de la constelación y la ruta...")
-    plot_simulation(N_P, N_S, src_plane, src_sat, dst_plane, dst_sat, hops_h, hops_v)
-
-def plot_simulation(N_P, N_S, src_p, src_s, dst_p, dst_s, h_hops, v_hops):
-    # Crear grafo tipo Grid (Toroide para simular la vuelta al mundo)
-    G = nx.grid_2d_graph(N_P, N_S, periodic=True)
-    
-    pos = dict((n, n) for n in G.nodes())
-    
-    plt.figure(figsize=(12, 8))
-    
-    # Dibujar todos los nodos y aristas base
-    nx.draw_networkx_nodes(G, pos, node_color='lightgray', node_size=300)
-    nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3)
-    
-    # Determinar la mejor ruta para resaltarla
-    # Esto es una reconstrucción lógica basada en los resultados de tus fórmulas
-    # Calculamos el costo de las 4 opciones posibles
-    paths_costs = {
-        'West + NW': h_hops['west'] + v_hops['north_west'],
-        'West + SW': h_hops['west'] + v_hops['south_west'],
-        'East + NE': h_hops['east'] + v_hops['north_east'],
-        'East + SE': h_hops['east'] + v_hops['south_east']
-    }
-    
-    best_strategy = formulas.GetOptimalPaths(h_hops, v_hops, SubOptimalPaths=3)[0]
-    print(f"[*] Estrategia ganadora para visualización: {best_strategy}")
-
-    # Lógica simple para dibujar el camino (Pathfinding simulado basado en la estrategia)
-    path_nodes = [(src_p, src_s)]
-    curr_p, curr_s = src_p, src_s
-    
-    # Decodificar estrategia
-    direction = best_strategy.split(' + ')
-    h_dir = direction[0] # West o East
-    v_dir = direction[1] # NW, SW, NE, SE
-    
-    # 1. Moverse horizontalmente
-    steps_h = h_hops['west'] if h_dir == 'West' else h_hops['east']
-    for _ in range(steps_h):
-        if h_dir == 'West':
-            curr_p = (curr_p - 1) % N_P
-        else:
-            curr_p = (curr_p + 1) % N_P
-        path_nodes.append((curr_p, curr_s))
+class GMTS_Agent(nn.Module):
+    def __init__(self, input_dim, hidden_dim, L=3):
+        super(GMTS_Agent, self).__init__()
+        # Procesamiento de características de nodos y enlaces
+        self.gnn_layer = nn.Linear(input_dim, hidden_dim)
         
-    # 2. Moverse verticalmente
-    # Nota: NW implica moverse al norte en satélites. SW al sur.
-    steps_v = 0
-    if v_dir == 'NW': steps_v = v_hops['north_west']
-    elif v_dir == 'SW': steps_v = v_hops['south_west']
-    elif v_dir == 'NE': steps_v = v_hops['north_east']
-    elif v_dir == 'SE': steps_v = v_hops['south_east']
+        # Actor: Genera la distribución de tráfico para las L rutas (Ecuación 2)
+        self.actor = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, L),
+            nn.Softmax(dim=-1) 
+        )
+        
+        # Critic: Estima la utilidad (Recompensa esperada)
+        self.critic = nn.Linear(hidden_dim, 1)
+
+    def forward(self, state_features, adj_matrix):
+        # Paso de mensajes GNN simple
+        x = F.relu(torch.matmul(adj_matrix, self.gnn_layer(state_features)))
+        global_repr = torch.mean(x, dim=0)
+        
+        ratios = self.actor(global_repr) # Vector omega [w1, w2, w3]
+        value = self.critic(global_repr)
+        return ratios, value
+
+class SatelliteTrainer:
+    def __init__(self, model, optimizer, beta1=0.5):
+        self.model = model
+        self.optimizer = optimizer
+        self.beta1 = beta1 # Balance entre Throughput y Delay (Ecuación 6)
+
+    def compute_network_metrics(self, routes_data, traffic_ratios):
+        """
+        Integra consideraciones.py para evaluar la decisión de la IA.
+        """
+        path_delays: list = []
+        path_throughputs : list = []
+
+        for i, route in enumerate(routes_data):
+            # 1. Calcular Retraso de la Ruta (Ecuación 1)
+            # En un entorno real, estos datos vendrían del simulador (ej. NS3)
+            delay: float = PathDelay(route['q_delays'], route['r_delays'], route['distances'])
+            path_delays.append(delay)
+
+            # 2. Calcular Throughput de la Ruta (Ecuación 5)
+            # Escalado por el ratio (omega) decidido por la IA
+            throughput = PathThroughput(route['link_traffics']) * traffic_ratios[i].item()
+            path_throughputs.append(throughput)
+
+        avg_f = sum(path_throughputs) / len(path_throughputs)
+        avg_d = sum(path_delays) / len(path_delays)
+        
+        return avg_f, avg_d
+
+    def train_step(self, state, adj, candidate_routes):
+        self.optimizer.zero_grad()
+        
+        # 1. La IA decide los ratios de tráfico (omega)
+        ratios, value = self.model(state, adj)
+        
+        # 2. Evaluación física usando consideraciones.py
+        avg_f, avg_d = self.compute_network_metrics(candidate_routes, ratios)
+        
+        # 3. Cálculo de Recompensa/Utilidad (Ecuación 6)
+        reward = TrainingFunction(avg_f, avg_d, self.beta1)
+        
+        # 4. Cálculo de pérdida (PPO/Policy Gradient simplificado)
+        # Buscamos maximizar la recompensa (minimizar -reward)
+        advantage = reward - value.item()
+        loss_actor = -torch.log(ratios).mean() * advantage
+        loss_critic = F.mse_loss(value, torch.tensor([reward]))
+        
+        total_loss = loss_actor + loss_critic
+        total_loss.backward()
+        self.optimizer.step()
+        
+        return reward
+
+
+
+# Inicialización
+trainer = SatelliteTrainer(agent,optimizer , beta1=0.6)
+MAX_EPOCHS = 500
+sourceSatelite =  
+sourcePlane = 
+h_hops_dict = 
+v_hops_dict = 
+NumberSatelites = 11
+NumberPlanes = 6
+for epoch in range(MAX_EPOCHS):
+    # FASE 1: Descubrimiento de rutas (formulas.py)
+    # Obtenemos las L mejores rutas físicas
+    rutas_IA = GetOptimalPaths(
+        sourceSatelite, sourcePlane, 
+        h_hops_dict, v_hops_dict, 
+        NumberSatelites, NumberPlanes
+    )
+
+    # FASE 2: Entrenamiento (consideraciones.py + PyTorch)
+    # 'rutas_IA' ahora contiene los 'enlaces' que la IA debe evaluar
+    state_tensor = getNetworkState(rutas_IA) # Datos de congestión actual
+    adj_tensor = getAdjascencyMatrix(rutas_IA)
     
-    # Dirección vertical: Asumimos índices crecientes van al "Norte" (o Sur dependiendo convención)
-    # En grafos grid, y+1 es "arriba".
-    vertical_step = 1 if 'N' in v_dir else -1 # Simplificación visual
+    reward = trainer.train_step(state_tensor, adj_tensor, rutas_IA)
     
-    for _ in range(steps_v):
-        curr_s = (curr_s + vertical_step) % N_S
-        path_nodes.append((curr_p, curr_s))
-
-    # Dibujar Camino
-    path_edges = list(zip(path_nodes, path_nodes[1:]))
-    nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='gold', width=3)
-    nx.draw_networkx_nodes(G, pos, nodelist=path_nodes, node_color='yellow', node_size=100)
-
-    # Dibujar Origen y Destino
-    nx.draw_networkx_nodes(G, pos, nodelist=[(src_p, src_s)], node_color='green', label='Source', node_size=500)
-    nx.draw_networkx_nodes(G, pos, nodelist=[(dst_p, dst_s)], node_color='red', label='Dest', node_size=500)
-
-    # Etiquetas
-    labels = {node: f"{node}" for node in G.nodes() if node in path_nodes or node == (src_p, src_s) or node == (dst_p, dst_s)}
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=8)
-
-    plt.title(f"Visualización de Ruta Satelital (Estrategia: {best_strategy})")
-    plt.xlabel("Planos Orbitales (Inter-plane)")
-    plt.ylabel("Satélites en Plano (Intra-plane)")
-    plt.legend(["Nodos", "Enlaces", "Ruta", "Saltos", "Origen", "Destino"])
-    plt.grid(True, linestyle='--', alpha=0.5)
-    
-    print("[*] Gráfico generado. Cerrar ventana para terminar.")
-    plt.show()
-
-if __name__ == "__main__":
-    run_test()
-#- ---- -- -- -- Debug code for formulas.py here - ---- -- -- --
-
-"""
-run_test()
+    if epoch % 50 == 0:
+        print(f"Epoch {epoch} | Recompensa (Utilidad): {reward:.4f}")
