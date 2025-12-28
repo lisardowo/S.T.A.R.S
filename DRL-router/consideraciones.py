@@ -4,27 +4,9 @@ import numpy as np
 
 # Constante: Velocidad de la luz (vacío)
 C = 299792458 
-def getNetworkState():
+def getNetworkState(rutasIA):
     return 
 
-def getAdjascencyMatrix():
-    AdjascencyMatrix = []
-    rows, cols = (5, 5)
-    # 1st approach
-    arr = [[0]*cols]*rows
-    arr[2][4] = 1
-
-    for row in arr:
-        print(row)
-
-    # 2nd approach
-    arr = [[0 for i in range(cols)] for j in range(rows)]
-
-    arr[0][0] = 1
-    for row in arr:
-        print(row)
-
-    return AdjascencyMatrix
 
 def PathDelay(q_delays: list, r_delays: list, distances: list) -> float:
     """
