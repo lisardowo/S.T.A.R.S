@@ -7,6 +7,7 @@ import simpy
 import formulas
 import consideraciones
 from satelites import ConstellationManager
+from monitor import plot_training_results
 
 # --- AGENTE DRL ---
 class GMTS_Agent(nn.Module):
@@ -58,22 +59,24 @@ class SatelliteTrainer:
 
 # --- CLASE BRIDGE: ROUTER INTELIGENTE ---
 class IntelligentRouter:
-    def __init__(self, constellation_manager, model_dir="DRL-router/mejorModelo", model_name="best_model.pth"):
+    def __init__(self, constellation_manager, model_dir="DRL-router/mejorModelo", model_name="best_model.pth", train_mode=True):
         self.constellation = constellation_manager
         self.model_dir = model_dir
         self.model_name = model_name
         self.model_path = os.path.join(self.model_dir, self.model_name)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        
+        self.train_mode = train_mode  # New parameter to control training mode
+
         self.input_dim = 4 
         self.hidden_dim = 64
         self.agent = GMTS_Agent(self.input_dim, self.hidden_dim).to(self.device)
-        self.optimizer = torch.optim.Adam(self.agent.parameters(), lr=0.001)
-        self.trainer = SatelliteTrainer(self.agent, self.optimizer)
-        self.best_reward = -float('inf')
 
-        # Crear el directorio si no existe
+        if self.train_mode:
+            self.optimizer = torch.optim.Adam(self.agent.parameters(), lr=0.001)
+            self.trainer = SatelliteTrainer(self.agent, self.optimizer)
+            self.best_reward = -float('inf')
+
+        # Ensure the model directory exists
         os.makedirs(self.model_dir, exist_ok=True)
 
         if os.path.exists(self.model_path):
@@ -120,7 +123,7 @@ class IntelligentRouter:
         return augmented, ratios, value
 
     def save_if_best(self, current_reward):
-        if current_reward > self.best_reward:
+        if self.train_mode and current_reward > self.best_reward:
             self.best_reward = current_reward
             torch.save(self.agent.state_dict(), self.model_path)
             print(f"[*] Nuevo mejor modelo guardado en {self.model_path}")
@@ -131,25 +134,48 @@ class IntelligentRouter:
 if __name__ == "__main__":
     env = simpy.Environment()
     constellation = ConstellationManager(env)
-    router = IntelligentRouter(constellation)
-    
-    print("\n[*] Iniciando Entrenamiento DRL...")
-    for epoch in range(10000):
-        # Avanzar simulación procedural
-        env.run(until=env.now + 1)
-        
-        # Obtener decisión del router
-        candidates, ratios, value = router.find_best_routes(0, 0, 3, 5)
-        
-        if candidates:
-            # Entrenar y obtener recompensa
-            reward = router.trainer.train_step(ratios, value, candidates)
-            
-            # Guardar mejor modelo
-            is_best = router.save_if_best(reward)
-            
-            if epoch % 10 == 0:
-                status = "[NUEVO MEJOR]" if is_best else ""
-                print(f"Epoch {epoch:03d} | Reward: {reward:.4f} | Ratios: {ratios.detach().cpu().numpy().round(2)} {status}")
 
-    print("\n[*] Entrenamiento completado. El mejor modelo se guardó en 'best_model.pth'")
+    # --- Dentro de if __name__ == "__main__": ---
+    history = {
+    'epochs': [],
+    'rewards': [],
+    'throughputs': []
+    }
+
+    # Set train_mode to False for inference
+    train_mode = True  # Change to False to disable training
+
+    router = IntelligentRouter(constellation, model_dir="DRL-router/mejorModelo", train_mode=train_mode)
+
+    if train_mode:
+        print("\n[*] Iniciando Entrenamiento DRL...")
+        for epoch in range(1000):
+            # Procedural simulation step
+            env.run(until=env.now + 1)
+
+            # Get router decision
+            candidates, ratios, value = router.find_best_routes(0, 0, 3, 5)
+
+            if candidates:
+                # Train and get reward
+                reward = router.trainer.train_step(ratios, value, candidates)
+
+                avg_tp = sum([c['throughput'] for c in candidates]) / len(candidates)
+                history['epochs'].append(epoch)
+                history['rewards'].append(reward)
+                history['throughputs'].append(avg_tp)
+                # Save best model
+                is_best = router.save_if_best(reward)
+
+                if epoch % 10 == 0:
+                    status = "[NUEVO MEJOR]" if is_best else ""
+                    print(f"Epoch {epoch:03d} | Reward: {reward:.4f} | Ratios: {ratios.detach().cpu().numpy().round(2)} {status}")
+        
+        print("\n[*] Entrenamiento completado. El mejor modelo se guardó en 'best_model.pth'")
+        plot_training_results(history['epochs'], history['rewards'], history['throughputs'])
+    
+    else:
+        print("\n[*] Usando el modelo entrenado para inferencia...")
+        # Example of using the model for inference
+        candidates, ratios, value = router.find_best_routes(0, 0, 3, 5)
+        print(f"[*] Candidatos: {candidates}")
