@@ -130,21 +130,28 @@ def GetOptimalPaths(sourceSatelite, sourcePlane , Horizontal_hops: dict, Vertica
     return rutas_candidatas
 
 
-def getAdjascencyMatrix(rutasIA):
-    AdjascencyMatrix = []
-    rows, cols = (5, 5)
-    # 1st approach
-    arr = [[0]*cols]*rows
-    arr[2][4] = 1
+def getAdjascencyMatrix(rutas_IA: list, num_planes: int, num_sats: int) -> torch.Tensor:
+    """
+    Crea una matriz de adyacencia global basada en los enlaces de las rutas candidatas.
+    """
+    # El número total de nodos en la red
+    total_nodes = num_planes * num_sats
+    adj = torch.zeros((total_nodes, total_nodes))
 
-    for row in arr:
-        print(row)
-
-    # 2nd approach
-    arr = [[0 for i in range(cols)] for j in range(rows)]
-
-    arr[0][0] = 1
-    for row in arr:
-        print(row)
-
-    return AdjascencyMatrix
+    for ruta in rutas_IA:
+        for enlace in ruta['enlaces']:
+            # Extraer IDs: "S0_0-S0_1" -> u="S0_0", v="S0_1"
+            u_str, v_str = enlace.split('-')
+            
+            # Convertir string a índice lineal: (Plano * NumSats) + SatID
+            u_p, u_s = map(int, u_str[1:].split('_'))
+            v_p, v_s = map(int, v_str[1:].split('_'))
+            
+            idx_u = (u_p * num_sats) + u_s
+            idx_v = (v_p * num_sats) + v_s
+            
+            # Conexión bidireccional
+            adj[idx_u][idx_v] = 1
+            adj[idx_v][idx_u] = 1
+            
+    return adj
