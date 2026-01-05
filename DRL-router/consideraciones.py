@@ -45,4 +45,3 @@ def TrainingFunction(avg_throughput: float, avg_delay: float, beta1: float = 0.5
     term2 = beta2 * math.log(avg_delay + epsilon)
     return term1 - term2
 
-getAdjascencyMatrix()

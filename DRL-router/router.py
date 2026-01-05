@@ -6,7 +6,7 @@ import os
 import simpy
 import formulas
 import consideraciones
-from satellites import ConstellationManager
+from satelites import ConstellationManager
 
 # --- AGENTE DRL ---
 class GMTS_Agent(nn.Module):
@@ -58,10 +58,13 @@ class SatelliteTrainer:
 
 # --- CLASE BRIDGE: ROUTER INTELIGENTE ---
 class IntelligentRouter:
-    def __init__(self, constellation_manager, model_path="best_model.pth"):
+    def __init__(self, constellation_manager, model_dir="DRL-router/mejorModelo", model_name="best_model.pth"):
         self.constellation = constellation_manager
-        self.model_path = model_path
+        self.model_dir = model_dir
+        self.model_name = model_name
+        self.model_path = os.path.join(self.model_dir, self.model_name)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
         
         self.input_dim = 4 
         self.hidden_dim = 64
@@ -70,9 +73,12 @@ class IntelligentRouter:
         self.trainer = SatelliteTrainer(self.agent, self.optimizer)
         self.best_reward = -float('inf')
 
-        if os.path.exists(model_path):
-            self.agent.load_state_dict(torch.load(model_path))
-            print(f"[*] Modelo cargado desde {model_path}")
+        # Crear el directorio si no existe
+        os.makedirs(self.model_dir, exist_ok=True)
+
+        if os.path.exists(self.model_path):
+            self.agent.load_state_dict(torch.load(self.model_path))
+            print(f"[*] Modelo cargado desde {self.model_path}")
 
     def _calculate_formulas_inputs(self, src_plane, src_sat, dst_plane, dst_sat):
         N_P, N_S = self.constellation.planes, self.constellation.sats_per_plane
@@ -117,6 +123,7 @@ class IntelligentRouter:
         if current_reward > self.best_reward:
             self.best_reward = current_reward
             torch.save(self.agent.state_dict(), self.model_path)
+            print(f"[*] Nuevo mejor modelo guardado en {self.model_path}")
             return True
         return False
 
@@ -127,7 +134,7 @@ if __name__ == "__main__":
     router = IntelligentRouter(constellation)
     
     print("\n[*] Iniciando Entrenamiento DRL...")
-    for epoch in range(100):
+    for epoch in range(10000):
         # Avanzar simulación procedural
         env.run(until=env.now + 1)
         
