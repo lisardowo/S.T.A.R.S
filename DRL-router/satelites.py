@@ -109,6 +109,7 @@ class ConstellationManager:
             'link_traffic': current_traffic,
             'bandwidth_available': node_v.available_bandwidth
         }
+        
 
 # Bloque para probar solo este archivo
 if __name__ == "__main__":
