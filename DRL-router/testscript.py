@@ -1,7 +1,6 @@
 import math
 import time
-import networkx as nx
-import matplotlib.pyplot as plt
+
 import formulas  
 
 def run_test():

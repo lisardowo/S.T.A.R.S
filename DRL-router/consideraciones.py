@@ -1,11 +1,9 @@
 import math
-import torch
-import numpy as np
+
 
 # Constante: Velocidad de la luz (vacío)
 C = 299792458 
-def getNetworkState(rutasIA):
-    return 
+
 
 
 def PathDelay(q_delays: list, r_delays: list, distances: list) -> float:

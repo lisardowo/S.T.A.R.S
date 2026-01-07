@@ -172,7 +172,7 @@ if __name__ == "__main__":
     constellation = ConstellationManager(env)
 
     # --- Dentro de if __name__ == "__main__": ---
-    train_mode = True  # Change to False to disable training
+    train_mode = False  # Change to False to disable training
     visualize_Last_Graph = True # Change to false to disable watching the last graph
 
     router = IntelligentRouter(constellation, model_dir="DRL-router/mejorModelo", train_mode=train_mode)
@@ -242,6 +242,47 @@ if __name__ == "__main__":
                     print(f"Epoch {epoch} | Reward: {reward:.4f} | Ratios: {ratios_np}")
                 if epoch % 100 == 0 :
                     constellation.recover_all_satellites()
-
-        # --- Al finalizar el bucle ---
         monitor.plot_training_results(history['epochs'], history['rewards'], history['throughputs'])
+    else:
+        
+        env = simpy.Environment()
+        constellation = ConstellationManager(env)
+
+        router = IntelligentRouter(
+        constellation, 
+        model_dir="DRL-router/mejorModelo", 
+        train_mode=False
+        )
+
+        env.run(until=env.now + 1)
+
+        # Definir Origen y Destino
+        N_P, N_S = constellation.planes, constellation.sats_per_plane
+        src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
+        dst_p, dst_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
+
+        candidates, features, adj = router.find_best_routes(src_p, src_s, dst_p, dst_s)
+
+        if candidates:
+  
+            state_tensor = torch.tensor(features, dtype=torch.float32).to(router.device)
+            adj_tensor = adj.to(router.device) if adj is not None else None
+
+   
+            # En modo inferencia no llamar al trainer
+            with torch.no_grad(): # Desactiva el cálculo de gradientes para ahorrar memoria
+                ratios, _ = router.agent(state_tensor, adj_tensor)
+    
+            ratios_np = ratios.cpu().numpy().round(3).tolist()
+
+            print(f"\n--- Resultados de Inferencia ---")
+            print(f"Origen: P{src_p}S{src_s} | Destino: P{dst_p}S{dst_s}")
+            for i, cand in enumerate(candidates):
+                print(f"Ruta {i+1} ({cand['estrategia']}): Ratio Asignado: {ratios_np[i]}")
+                print(f"   Hops: {cand['hops']} | Delay: {cand['delay']:.4f}s | TP: {cand['throughput']:.2f}")
+
+            
+        else:
+            print("[!] No se encontraron rutas válidas (posible desconexión total por fallos).")
+       
+        

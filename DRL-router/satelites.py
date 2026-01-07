@@ -1,7 +1,5 @@
 import simpy
 import random
-import math
-import formulas
 
 # --- CONSTANTES HARCODEDAS (Como solicitado) ---
 NUMBER_OF_PLANES = 6    # N_P
