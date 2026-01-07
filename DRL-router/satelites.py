@@ -76,38 +76,50 @@ class ConstellationManager:
         key = f"S{plane_idx}_{sat_idx}"
         return self.satellites.get(key)
 
-    def get_link_metrics(self, u_id, v_id):
+    def get_link_metrics(self, u, v, packet_size=1500):
         """
         Calcula métricas en tiempo real entre dos nodos.
         Integra lógica de 'consideraciones.py' simulada.
         """
-        node_u = self.satellites[u_id]
-        node_v = self.satellites[v_id]
-        
+        node_u = self.satellites[u]
+        node_v = self.satellites[v]
+
+        u_active = getattr(node_u, "is_active", getattr(node_u, "active", True))
+        v_active = getattr(node_v, "is_active", getattr(node_v, "active", True))
+        v_bw = float(getattr(node_v, "available_bandwidth", 0.0))
+
+        if not u_active or not v_active or v_bw <= 0.0:
+            return {
+                'q_delay': 1e6,
+                'r_delay': 1e6,
+                'distance': float('inf'),
+                'link_traffic': 0.0,
+                'link_down': True,
+            }
+
+        denom = max(v_bw * 1e6, 1e-9)
+        r_delay = packet_size / denom
+
         # Distancia aproximada (simplificada para simulación, idealmente usaría física orbital)
         # Aquí usamos una distancia base + ruido procedural
         base_dist = 500000 # metros (intra-plane)
         if node_u.plane_id != node_v.plane_id:
             base_dist = 800000 # metros (inter-plane)
             
-        dist = base_dist + random.uniform(-1000, 1000)
-        
+        distance = base_dist + random.uniform(-1000, 1000)
+
         # Queue Delay (q) basado en la carga del nodo destino
         q_delay = node_v.current_load * 0.05 # max 50ms si está al 100%
-        
-        # Transmission Delay (r) basado en ancho de banda
-        packet_size = 1500 * 8 # bits
-        r_delay = packet_size / (node_v.available_bandwidth * 1e6)
         
         # Link Traffic actual (simulado)
         current_traffic = node_v.max_bandwidth - node_v.available_bandwidth
         
         return {
-            'distance': dist,
             'q_delay': q_delay,
             'r_delay': r_delay,
+            'distance': distance,
             'link_traffic': current_traffic,
-            'bandwidth_available': node_v.available_bandwidth
+            'link_down': False,
         }
         
     def fail_satellite(self, plane_id, sat_id):

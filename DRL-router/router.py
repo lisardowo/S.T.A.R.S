@@ -123,14 +123,17 @@ class IntelligentRouter:
         for link in path_links:
             u, v = link.split('-')
             m = self.constellation.get_link_metrics(u, v)
+            if m.get('link_down'):
+                return None  # ruta inválida por enlace caído
             total_q += m['q_delay']; total_r += m['r_delay']
             dists.append(m['distance']); traffics.append(m['link_traffic'])
             loads.append(self.constellation.satellites[v].current_load)
-        
+
+        dist_sum = sum(dists) if dists else 0.0
         return {
-            'delay': consideraciones.PathDelay([total_q], [total_r], [sum(dists)]),
-            'throughput': consideraciones.PathThroughput(traffics),
-            'max_load': max(loads) if loads else 0
+            'delay': consideraciones.PathDelay([total_q], [total_r], [dist_sum]),
+            'throughput': consideraciones.PathThroughput(traffics) if traffics else 0.0,
+            'max_load': max(loads) if loads else 0.0
         }
 
     def find_best_routes(self, src_p, src_s, dst_p, dst_s):
@@ -143,13 +146,16 @@ class IntelligentRouter:
         features, augmented = [], []
         for cand in candidates:
             m = self._extract_path_metrics(cand['enlaces'])
+            if m is None:
+                continue  # descartar ruta con fallo
             features.append([cand['hops']/10.0, m['delay']*10.0, m['throughput']/1000.0, m['max_load']])
             cand.update(m)
             augmented.append(cand)
 
-        # Adyacencia entre candidatos (no la de la constelación completa)
-        adj = self._build_candidate_adjacency(augmented)
+        if not augmented:
+            return None, None, None
 
+        adj = self._build_candidate_adjacency(augmented)
         return augmented, features, adj
 
     def save_if_best(self, current_reward):
@@ -182,13 +188,16 @@ if __name__ == "__main__":
             
             env.run(until=env.now + 1)
 
-            #if random.random() < 0.05:
-                # Elegir un satélite al azar para "romperlo"
-                #p_fail = random.randint(0, N_P - 1)
-                #s_fail = random.randint(0, N_S - 1)
-                #constellation.fail_satellite(p_fail, s_fail)
+           
 
             N_P, N_S = constellation.planes, constellation.sats_per_plane
+
+            if random.random() < 0.05:
+                # Elegir un satélite al azar para "romperlo"
+                p_fail = random.randint(0, N_P - 1)
+                s_fail = random.randint(0, N_S - 1)
+                constellation.fail_satellite(p_fail, s_fail)
+
             src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
             dst_p, dst_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
 
@@ -231,8 +240,8 @@ if __name__ == "__main__":
                         monitor.visualize_satellite_routes(candidates, N_P, N_S, src , dst)
                 if epoch % 10 == 0:
                     print(f"Epoch {epoch} | Reward: {reward:.4f} | Ratios: {ratios_np}")
-                """if epoch % 100 == 0 :
-                    constellation.recover_all_satellites()"""
+                if epoch % 100 == 0 :
+                    constellation.recover_all_satellites()
 
         # --- Al finalizar el bucle ---
         monitor.plot_training_results(history['epochs'], history['rewards'], history['throughputs'])
