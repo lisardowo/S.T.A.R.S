@@ -1,5 +1,8 @@
 import matplotlib.pyplot as plt
 import os
+import networkx as nx
+
+
 def plot_training_results(epochs, rewards, throughputs):
     fig, ax1 = plt.subplots(figsize=(10, 5))
 
@@ -49,4 +52,43 @@ def log_epoch_stats(file_path, data):
             f"{data['exec_time']:.4f}\n"
         )
         f.write(line)
+
+def visualize_satellite_routes(candidates, n_planes, n_sats, src, dst):
+    """
+    Dibuja la malla de satélites y resalta las rutas candidatas.
+    """
+    G = nx.Graph()
+    pos = {}
+
+    # 1. Crear la malla completa de la constelación
+    for p in range(n_planes):
+        for s in range(n_sats):
+            node_id = f"S{p}_{s}"
+            G.add_node(node_id)
+            pos[node_id] = (p, s) # Posición tipo grid
+
+    # 2. Dibujar todos los nodos y conexiones tenues de fondo
+    plt.figure(figsize=(12, 8))
+    nx.draw_networkx_nodes(G, pos, node_size=50, node_color='lightgrey', alpha=0.5)
+    
+    # 3. Resaltar las rutas candidatas con distintos colores
+    colors = ['#FF5733', '#33FF57', '#3357FF'] # Naranja, Verde, Azul
+    for i, cand in enumerate(candidates):
+        path_edges = []
+        for enlace in cand['enlaces']:
+            u, v = enlace.split('-')
+            path_edges.append((u, v))
         
+        nx.draw_networkx_edges(G, pos, edgelist=path_edges, 
+                               edge_color=colors[i % len(colors)], 
+                               width=2, label=f"Ruta {i+1}: {cand['estrategia']}")
+
+    # 4. Marcar Origen y Destino
+    nx.draw_networkx_nodes(G, pos, nodelist=[src, dst], node_size=200, node_color='yellow', edgecolors='black')
+    
+    plt.title(f"Topología GNN: Rutas de {src} a {dst}")
+    plt.xlabel("Planos Orbitales")
+    plt.ylabel("Satélites por Plano")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.3)
+    plt.show()

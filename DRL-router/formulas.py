@@ -1,4 +1,6 @@
 import math
+import torch
+
 
 def mathematicalRounding(x: float) -> int:
     
@@ -155,3 +157,4 @@ def getAdjascencyMatrix(rutas_IA: list, num_planes: int, num_sats: int) -> torch
             adj[idx_v][idx_u] = 1
             
     return adj
+

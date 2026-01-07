@@ -49,3 +49,5 @@ coverage/
 *.sw?
 *.toml
 __pycache__/
+
+drl_benchmark_log.txt

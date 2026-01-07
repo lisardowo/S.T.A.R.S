@@ -110,6 +110,23 @@ class ConstellationManager:
             'bandwidth_available': node_v.available_bandwidth
         }
         
+    def fail_satellite(self, plane_id, sat_id):
+        """Desactiva un satélite para probar la resiliencia de la GNN."""
+        sat_id_str = f"S{plane_id}_{sat_id}"
+        if sat_id_str in self.satellites:
+       
+            self.satellites[sat_id_str].available_bandwidth = 0
+            self.satellites[sat_id_str].current_load = 1.0
+            print(f"[!] FALLO : Satélite {sat_id_str} fuera de servicio.")
+
+
+    def recover_all_satellites(self):
+        """Restaura la salud de todos los satélites de la constelación."""
+        for sat in self.satellites.values():
+            sat.available_bandwidth = sat.max_bandwidth
+            sat.current_load = random.uniform(0.1, 0.4)
+        print("[*] Constelación restaurada: Todos los sistemas operativos.")
+
 
 # Bloque para probar solo este archivo
 if __name__ == "__main__":

@@ -24,11 +24,14 @@ class GMTS_Agent(nn.Module):
         )
         self.critic = nn.Linear(hidden_dim, 1)
 
-def forward(self, x, adj):
-       
-
-        degree_matrix = torch.eye(adj.size(0)).to(adj.device) + adj
-        support = self.w_gnn(x)
+    def forward(self, x, adj=None):
+        # Si no se pasa adj, usar identidad del tamaño de x
+        if adj is None:
+            adj = torch.eye(x.size(0), device=x.device)
+        else:
+            adj = adj.to(x.device)
+        degree_matrix = torch.eye(adj.size(0), device=adj.device) + adj
+        support = self.gnn_layer(x)
         embeddings = F.relu(torch.matmul(degree_matrix, support))
         global_repr = torch.mean(embeddings, dim=0)
         
@@ -36,6 +39,8 @@ def forward(self, x, adj):
         value = self.critic(global_repr)
         
         return ratios, value
+
+
 
 # --- ENTRENADOR (Logic de Recompensa y Optimización) ---
 class SatelliteTrainer:
@@ -93,6 +98,18 @@ class IntelligentRouter:
             self.agent.load_state_dict(torch.load(self.model_path))
             print(f"[*] Modelo cargado desde {self.model_path}")
 
+    def _build_candidate_adjacency(self, routes):
+        # Adyacencia entre rutas: 1 si comparten al menos un enlace
+        n = len(routes)
+        adj = torch.zeros((n, n), dtype=torch.float32)
+        enlaces_sets = [set(r['enlaces']) for r in routes]
+        for i in range(n):
+            for j in range(i + 1, n):
+                if enlaces_sets[i] & enlaces_sets[j]:
+                    adj[i, j] = 1.0
+                    adj[j, i] = 1.0
+        return adj
+
     def _calculate_formulas_inputs(self, src_plane, src_sat, dst_plane, dst_sat):
         N_P, N_S = self.constellation.planes, self.constellation.sats_per_plane
         raan_delta = formulas.RAAN_Delta(src_plane * (2*math.pi/N_P), dst_plane * (2*math.pi/N_P))
@@ -120,17 +137,20 @@ class IntelligentRouter:
         h_h, h_v = self._calculate_formulas_inputs(src_p, src_s, dst_p, dst_s)
         candidates = formulas.GetOptimalPaths(src_s, src_p, h_h, h_v, self.constellation.sats_per_plane, self.constellation.planes)
         
-        if not candidates: return None, None, None
+        if not candidates:
+            return None, None, None
 
         features, augmented = [], []
         for cand in candidates:
             m = self._extract_path_metrics(cand['enlaces'])
             features.append([cand['hops']/10.0, m['delay']*10.0, m['throughput']/1000.0, m['max_load']])
-            cand.update(m); augmented.append(cand)
+            cand.update(m)
+            augmented.append(cand)
 
-        state_tensor = torch.tensor(features, dtype=torch.float32).to(self.device)
-        ratios, value = self.agent(state_tensor)
-        return augmented, ratios, value
+        # Adyacencia entre candidatos (no la de la constelación completa)
+        adj = self._build_candidate_adjacency(augmented)
+
+        return augmented, features, adj
 
     def save_if_best(self, current_reward):
         if self.train_mode and current_reward > self.best_reward:
@@ -147,6 +167,7 @@ if __name__ == "__main__":
 
     # --- Dentro de if __name__ == "__main__": ---
     train_mode = True  # Change to False to disable training
+    visualize_Last_Graph = True # Change to false to disable watching the last graph
 
     router = IntelligentRouter(constellation, model_dir="DRL-router/mejorModelo", train_mode=train_mode)
 
@@ -161,20 +182,24 @@ if __name__ == "__main__":
             
             env.run(until=env.now + 1)
 
-            
+            #if random.random() < 0.05:
+                # Elegir un satélite al azar para "romperlo"
+                #p_fail = random.randint(0, N_P - 1)
+                #s_fail = random.randint(0, N_S - 1)
+                #constellation.fail_satellite(p_fail, s_fail)
+
             N_P, N_S = constellation.planes, constellation.sats_per_plane
             src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
             dst_p, dst_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
 
             
-            candidates, features, _ = router.find_best_routes(src_p, src_s, dst_p, dst_s)
+            candidates, features, adj = router.find_best_routes(src_p, src_s, dst_p, dst_s)
 
             if candidates:
-                # 4. Preparar Tensores para GNN
+                # Preparar tensores
                 state_tensor = torch.tensor(features, dtype=torch.float32).to(router.device)
-                adj_tensor = formulas.getAdjascencyMatrix(candidates, N_P, N_S)
-                
-                
+                adj_tensor = adj.to(router.device) if adj is not None else None
+
                 ratios, value = router.agent(state_tensor, adj_tensor)
                 reward = router.trainer.train_step(ratios, value, candidates)
                 is_best = router.save_if_best(reward)
@@ -184,7 +209,7 @@ if __name__ == "__main__":
                 avg_delay = sum([c['delay'] for c in candidates]) / len(candidates)
                 max_load = max([c['max_load'] for c in candidates])
                 ratios_np = ratios.detach().cpu().numpy().round(3).tolist()
-                
+
                 # Llenar arrays para gráfica
                 history['epochs'].append(epoch)
                 history['rewards'].append(reward)
@@ -198,9 +223,16 @@ if __name__ == "__main__":
                     'max_load': max_load, 'exec_time': time.time() - initialTime
                 }
                 monitor.log_epoch_stats(log_file, debug_data)
+                if visualize_Last_Graph == True:
+                    if epoch == 999: 
+                        src = f"S{src_p}_{src_s}"
+                        dst = f"S{dst_p}_{dst_s}"
 
+                        monitor.visualize_satellite_routes(candidates, N_P, N_S, src , dst)
                 if epoch % 10 == 0:
                     print(f"Epoch {epoch} | Reward: {reward:.4f} | Ratios: {ratios_np}")
+                """if epoch % 100 == 0 :
+                    constellation.recover_all_satellites()"""
 
         # --- Al finalizar el bucle ---
         monitor.plot_training_results(history['epochs'], history['rewards'], history['throughputs'])
