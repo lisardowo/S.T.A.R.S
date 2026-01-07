@@ -172,8 +172,8 @@ if __name__ == "__main__":
     constellation = ConstellationManager(env)
 
     # --- Dentro de if __name__ == "__main__": ---
-    train_mode = False  # Change to False to disable training
-    visualize_Last_Graph = True # Change to false to disable watching the last graph
+    train_mode = True  # Change to False to disable training
+    visualize_Last_Graph = False # Change to false to disable watching the last graph
 
     router = IntelligentRouter(constellation, model_dir="DRL-router/mejorModelo", train_mode=train_mode)
 
