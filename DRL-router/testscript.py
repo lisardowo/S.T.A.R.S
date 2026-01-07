@@ -79,7 +79,7 @@ def run_test():
     execution_time = time.time() - start_time
     print("-" * 60)
     print(f"[*] Ejecución numérica completada en {execution_time:.6f} segundos")
-    print("-" * 60)
+    print("-" * 60) #TODO corregir el testciprt para matchear la version actual del api
 """1ara resaltarla
     # Esto es una reconstrucción lógica basada en los resultados de tus fórmulas
     # Calculamos el costo de las 4 opciones posibles

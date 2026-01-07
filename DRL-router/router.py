@@ -172,7 +172,7 @@ if __name__ == "__main__":
     constellation = ConstellationManager(env)
 
     # --- Dentro de if __name__ == "__main__": ---
-    train_mode = True  # Change to False to disable training
+    train_mode = False  # Change to False to disable training
     visualize_Last_Graph = False # Change to false to disable watching the last graph
 
     router = IntelligentRouter(constellation, model_dir="DRL-router/mejorModelo", train_mode=train_mode)
@@ -245,14 +245,7 @@ if __name__ == "__main__":
         monitor.plot_training_results(history['epochs'], history['rewards'], history['throughputs'])
     else:
         
-        env = simpy.Environment()
-        constellation = ConstellationManager(env)
-
-        router = IntelligentRouter(
-        constellation, 
-        model_dir="DRL-router/mejorModelo", 
-        train_mode=False
-        )
+    
 
         env.run(until=env.now + 1)
 
