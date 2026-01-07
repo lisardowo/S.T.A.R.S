@@ -24,10 +24,18 @@ class GMTS_Agent(nn.Module):
         )
         self.critic = nn.Linear(hidden_dim, 1)
 
-    def forward(self, state_features):
-        x = F.relu(self.gnn_layer(state_features))
-        global_repr = torch.mean(x, dim=0) 
-        return self.actor(global_repr), self.critic(global_repr)
+def forward(self, x, adj):
+       
+
+        degree_matrix = torch.eye(adj.size(0)).to(adj.device) + adj
+        support = self.w_gnn(x)
+        embeddings = F.relu(torch.matmul(degree_matrix, support))
+        global_repr = torch.mean(embeddings, dim=0)
+        
+        ratios = self.actor(global_repr)
+        value = self.critic(global_repr)
+        
+        return ratios, value
 
 # --- ENTRENADOR (Logic de Recompensa y Optimización) ---
 class SatelliteTrainer:
@@ -138,80 +146,61 @@ if __name__ == "__main__":
     constellation = ConstellationManager(env)
 
     # --- Dentro de if __name__ == "__main__": ---
-    history = {
-    'epochs': [],
-    'rewards': [],
-    'throughputs': []
-    }
-
-    # Set train_mode to False for inference
     train_mode = True  # Change to False to disable training
 
     router = IntelligentRouter(constellation, model_dir="DRL-router/mejorModelo", train_mode=train_mode)
 
     if train_mode:
         print("\n[*] Iniciando Entrenamiento DRL...")
+        history = {'epochs': [], 'rewards': [], 'throughputs': []}
+        log_file = "drl_benchmark_log.txt"
+
         for epoch in range(1000):
             initialTime = time.time()
-            # Procedural simulation step
+            
+            
             env.run(until=env.now + 1)
 
-            # Generar valores aleatorios para src_p, src_s, dst_p, dst_s
+            
             N_P, N_S = constellation.planes, constellation.sats_per_plane
             src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
             dst_p, dst_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
-            log_file = "drl_benchmark_log.txt"
-            # Get router decision
-            candidates, ratios, value = router.find_best_routes(0, 0, 3, 5)
+
+            
+            candidates, features, _ = router.find_best_routes(src_p, src_s, dst_p, dst_s)
 
             if candidates:
-                # Train and get reward
+                # 4. Preparar Tensores para GNN
+                state_tensor = torch.tensor(features, dtype=torch.float32).to(router.device)
+                adj_tensor = formulas.getAdjascencyMatrix(candidates, N_P, N_S)
+                
+                
+                ratios, value = router.agent(state_tensor, adj_tensor)
                 reward = router.trainer.train_step(ratios, value, candidates)
-            # Monitor resources
+                is_best = router.save_if_best(reward)
+
+                # Monitoreo 
                 avg_tp = sum([c['throughput'] for c in candidates]) / len(candidates)
                 avg_delay = sum([c['delay'] for c in candidates]) / len(candidates)
                 max_load = max([c['max_load'] for c in candidates])
                 ratios_np = ratios.detach().cpu().numpy().round(3).tolist()
-               
-            #graph arrays
-
+                
+                # Llenar arrays para gráfica
                 history['epochs'].append(epoch)
                 history['rewards'].append(reward)
                 history['throughputs'].append(avg_tp)
-            
 
-                # Save best model
-                is_best = router.save_if_best(reward)
-
-                #debug log
-             
+                # Registro en TXT (Debug Logger)
                 debug_data = {
-                'epoch': epoch,
-                'reward': reward,
-                'is_best': is_best,
-                'tp': avg_tp,
-                'delay': avg_delay,
-                'src': f"P{src_p}S{src_s}",
-                'dst': f"P{dst_p}S{dst_s}",
-                'ratios': ratios_np,
-                'max_load': max_load,
-                'exec_time': time.time() - initialTime
+                    'epoch': epoch, 'reward': reward, 'is_best': is_best,
+                    'tp': avg_tp, 'delay': avg_delay, 'src': f"P{src_p}S{src_s}",
+                    'dst': f"P{dst_p}S{dst_s}", 'ratios': ratios_np,
+                    'max_load': max_load, 'exec_time': time.time() - initialTime
                 }
-                #log
                 monitor.log_epoch_stats(log_file, debug_data)
 
-
-
                 if epoch % 10 == 0:
-                    status = "[NUEVO MEJOR]" if is_best else ""
-                    print(f"Epoch {epoch:03d} | Reward: {reward:.4f} | Ratios: {ratios.detach().cpu().numpy().round(2)} {status}")
-        
-        print("\n[*] Entrenamiento completado. El mejor modelo se guardó en 'best_model.pth'")
-        print("\n[*] Activity Log Generado")
-        monitor.plot_training_results(history['epochs'], history['rewards'], history['throughputs'])
+                    print(f"Epoch {epoch} | Reward: {reward:.4f} | Ratios: {ratios_np}")
 
-    else:
-        print("\n[*] Usando el modelo entrenado para inferencia...")
-        # Example of using the model for inference
-        candidates, ratios, value = router.find_best_routes(0, 0, 3, 5)
-        print(f"[*] Candidatos: {candidates}")
+        # --- Al finalizar el bucle ---
+        monitor.plot_training_results(history['epochs'], history['rewards'], history['throughputs'])
