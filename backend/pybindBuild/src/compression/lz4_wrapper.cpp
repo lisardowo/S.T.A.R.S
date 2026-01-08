@@ -1,5 +1,5 @@
 #include "lz4_wrapper.h"
-#include "../../external/lz4/lib/lz4.h"
+#include <lz4.h>
 
 std::vector<char>compressBlock(const std::vector<char>& input) {        //compression
     int maxSize = LZ4_compressBound(input.size());
