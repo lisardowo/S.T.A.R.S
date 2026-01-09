@@ -6,6 +6,7 @@ import simpy
 import time
 import torch
 import json
+import random
 
 from satelites import ConstellationManager
 from router import IntelligentRouter
@@ -103,6 +104,14 @@ class TransmissionSimulator:
                     )
                 )
                 packets_in_flight.append(p)
+            print(len(packets_in_flight))
+        
+        # MOVIDO FUERA DEL LOOP
+        if not packets_in_flight:
+            return {
+                "status": "FAILED",
+                "reason": "No packets were scheduled for transmission"
+            }
 
         # Esperar a que todos los paquetes lleguen
         yield simpy.AllOf(self.env, packets_in_flight)
@@ -128,7 +137,11 @@ class TransmissionSimulator:
         Simula el paso del paquete nodo por nodo para generar eventos de animación.
         """
         path_links = route['enlaces']
-        
+        if not path_links:
+            print("theres no link")
+            yield self.env.timeout(0)  # <-- Esto desbloquea SimPy correctamente
+            return
+
         # Calcular latencia total de la ruta (simplificado, idealmente es hop-by-hop)
         # Usamos los datos pre-calculados del router para velocidad
 
@@ -136,7 +149,8 @@ class TransmissionSimulator:
         hop_delay = total_delay / len(path_links)
         throughput = route['throughput'] # Mbps
         if throughput == 0:
-            throughput = 0.00001
+            
+            print("[*]DEBUG: throughput es 0")
         
         # Tiempo de serialización (tamaño / ancho de banda)
         packet_size_bits = len(data) * 8
@@ -169,6 +183,9 @@ class TransmissionSimulator:
                 "location": v # Nodo actual
             })
 
+        print(f"[DEBUG] Paquete {pkt_id} por ruta {route_idx} completado.")
+
+# --- BLOQUE DE EJECUCIÓN  ---
 # --- BLOQUE DE EJECUCIÓN  ---
 if __name__ == "__main__":
    
@@ -185,17 +202,29 @@ if __name__ == "__main__":
     dummy_data = "DATOS_DE_TELEMETRIA_SATELLITE," * 500 # Un string largo
     
     # Definir Origen y Destino
-    src_p, src_s = 0, 0
-    dst_p, dst_s = 2, 5
+    N_P, N_S = constellation.planes, constellation.sats_per_plane
+    src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
+    dst_p, dst_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
     
-    # Ejecutar proceso
-    process = env.process(transmitter.process_and_send(dummy_data, src_p, src_s, dst_p, dst_s))
-    env.run()
+    # Capturar resultado con contexto de función
+    result_json = [None] 
     
-    # Obtener resultados (simulando que esto se devuelve a una API Flask/FastAPI)
-    result_json = process.value
+    def capture_result():
+        # Asignamos el resultado del yield a la lista
+        result_json[0] = yield env.process(transmitter.process_and_send(dummy_data, src_p, src_s, dst_p, dst_s))
     
-    # Guardar un JSON para que veas qué estructura mandar al frontend
-    with open("frontend_demo_data.json", "w") as f:
-        json.dump(result_json, f, indent=4)
-        print("\n[V] Datos exportados a frontend_demo_data.json para React")
+    # --- CORRECCIÓN AQUÍ ---
+    # 1. Guardamos el proceso principal en una variable
+    main_proc = env.process(capture_result())
+    
+    # 2. Le decimos a env.run que pare AHI, ignorando los bucles infinitos de los satélites
+    env.run(until=main_proc)
+    # -----------------------
+    
+    # Ahora result_json tiene el valor y el script continuará hacia abajo
+    if result_json[0]:
+        with open("frontend_demo_data.json", "w") as f:
+            json.dump(result_json[0], f, indent=4)
+            print("\n[V] Datos exportados a frontend_demo_data.json para React")
+    else:
+        print("[!] No se pudo obtener el resultado de la transmisión")

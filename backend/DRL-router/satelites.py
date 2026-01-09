@@ -91,7 +91,7 @@ class ConstellationManager:
                 'q_delay': 1e6,
                 'r_delay': 1e6,
                 'distance': float('inf'),
-                'link_traffic': 0.0,
+                'link_throughput': node_v.available_bandwidth,
                 'link_down': True,
             }
 
@@ -116,7 +116,7 @@ class ConstellationManager:
             'q_delay': q_delay,
             'r_delay': r_delay,
             'distance': distance,
-            'link_traffic': current_traffic,
+            'link_throughput': node_v.available_bandwidth,
             'link_down': False,
         }
         
