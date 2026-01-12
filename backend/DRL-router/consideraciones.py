@@ -31,7 +31,8 @@ def LinkTraffic(flows_bandwidth: list, ratios: list, packet_loss_rates: list) ->
 
 def PathThroughput(link_traffics: list) -> float:
     
-    if not link_traffics: return 0.0
+    if not link_traffics: 
+        return 0.0001
     return max(link_traffics)
 
 def TrainingFunction(avg_throughput: float, avg_delay: float, beta1: float = 0.5) -> float:

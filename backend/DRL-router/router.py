@@ -119,20 +119,20 @@ class IntelligentRouter:
         return hops_h, formulas.CardinalDirectionsHops(e_lat, w_lat, N_S)
 
     def _extract_path_metrics(self, path_links):
-        total_q, total_r, dists, traffics, loads = 0, 0, [], [], []
+        total_q, total_r, dists, throughputs, loads = 0, 0, [], [], []
         for link in path_links:
             u, v = link.split('-')
             m = self.constellation.get_link_metrics(u, v)
             if m.get('link_down'):
                 return None  # ruta inválida por enlace caído
             total_q += m['q_delay']; total_r += m['r_delay']
-            dists.append(m['distance']); traffics.append(m['link_traffic'])
+            dists.append(m['distance']); throughputs.append(m['link_throughput'])
             loads.append(self.constellation.satellites[v].current_load)
 
         dist_sum = sum(dists) if dists else 0.0
         return {
             'delay': consideraciones.PathDelay([total_q], [total_r], [dist_sum]),
-            'throughput': consideraciones.PathThroughput(traffics) if traffics else 0.0,
+            'throughput': consideraciones.PathThroughput(throughputs) if throughputs else 0.0,
             'max_load': max(loads) if loads else 0.0
         }
 
