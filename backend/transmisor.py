@@ -29,15 +29,18 @@ class TransmissionSimulator:
         self.router = router
         self.transmission_log = [] # Aquí guardaremos todo para el Frontend
 
-    def process_and_send(self, raw_data_str, src_p, src_s, dst_p, dst_s):
+    def process_and_send(self, raw_bytes, src_p, src_s, dst_p, dst_s):
         """
         Flujo principal: Comprime -> Fragmenta -> DRL Routing -> Simula Envío
         """
-        print(f"\n[*] Iniciando transmisión de {len(raw_data_str)} bytes...")
+        if isinstance(raw_bytes, str):
+            raw_bytes = raw_bytes.encode('utf-8')
+
+        print(f"\n[*] Iniciando transmisión de {len(raw_bytes)} bytes...")
         
         # 1. PROCESAMIENTO HIBRIDO (C++)
         # Convertir string a bytes
-        raw_bytes = raw_data_str.encode('utf-8')
+        
         original_size = len(raw_bytes)
         
         t0 = time.time()
@@ -186,7 +189,7 @@ class TransmissionSimulator:
         print(f"[DEBUG] Paquete {pkt_id} por ruta {route_idx} completado.")
 
 # --- BLOQUE DE EJECUCIÓN  ---
-# --- BLOQUE DE EJECUCIÓN  ---
+
 if __name__ == "__main__":
    
     env = simpy.Environment()
@@ -198,9 +201,6 @@ if __name__ == "__main__":
     
     transmitter = TransmissionSimulator(env, constellation, router)
     
-    # Datos Dummy para probar
-    dummy_data = "DATOS_DE_TELEMETRIA_SATELLITE," * 500 # Un string largo
-    
     # Definir Origen y Destino
     N_P, N_S = constellation.planes, constellation.sats_per_plane
     src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
@@ -208,10 +208,10 @@ if __name__ == "__main__":
     
     # Capturar resultado con contexto de función
     result_json = [None] 
-    
+    test_data = "test" * 50000
     def capture_result():
         # Asignamos el resultado del yield a la lista
-        result_json[0] = yield env.process(transmitter.process_and_send(dummy_data, src_p, src_s, dst_p, dst_s))
+        result_json[0] = yield env.process(transmitter.process_and_send(test_data,src_p, src_s, dst_p, dst_s))
     
     # --- CORRECCIÓN AQUÍ ---
     # 1. Guardamos el proceso principal en una variable
@@ -228,3 +228,6 @@ if __name__ == "__main__":
             print("\n[V] Datos exportados a frontend_demo_data.json para React")
     else:
         print("[!] No se pudo obtener el resultado de la transmisión")
+
+
+
