@@ -125,9 +125,9 @@ class ConstellationManager:
         sat_id_str = f"S{plane_id}_{sat_id}"
         if sat_id_str in self.satellites:
        
-            self.satellites[sat_id_str].available_bandwidth = 0
+            self.satellites[sat_id_str].available_bandwidth = 0.000001
             self.satellites[sat_id_str].current_load = 1.0
-            print(f"[!] FALLO : Satélite {sat_id_str} fuera de servicio.")
+            print(f"[!] FALLO : Satélite {sat_id_str} fuera de servicio.") #TODO corregir logica de sobreescritura de estado
 
 
     def recover_all_satellites(self):
