@@ -16,28 +16,38 @@ class GMTS_Agent(nn.Module):
     def __init__(self, input_dim, hidden_dim, L=3):
         super(GMTS_Agent, self).__init__()
         self.gnn_layer = nn.Linear(input_dim, hidden_dim)
-        self.actor = nn.Sequential(
+        # producir un logit por ruta (n nodos), no un vector fijo de tamaño L
+        self.actor_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, L),
-            nn.Softmax(dim=-1) 
+            nn.Linear(hidden_dim, 1),
         )
         self.critic = nn.Linear(hidden_dim, 1)
 
-    def forward(self, x, adj=None):
-        # Si no se pasa adj, usar identidad del tamaño de x
+    def forward(self, x, adj=None, temperature=1.0, training=True):
         if adj is None:
             adj = torch.eye(x.size(0), device=x.device)
         else:
             adj = adj.to(x.device)
         degree_matrix = torch.eye(adj.size(0), device=adj.device) + adj
-        support = self.gnn_layer(x)
-        embeddings = F.relu(torch.matmul(degree_matrix, support))
-        global_repr = torch.mean(embeddings, dim=0)
-        
-        ratios = self.actor(global_repr)
+        support = self.gnn_layer(x)                 # shape: [n, hidden]
+        embeddings = F.relu(torch.matmul(degree_matrix, support))  # [n, hidden]
+        global_repr = torch.mean(embeddings, dim=0)                # [hidden]
+
+        # logits por ruta -> softmax sobre dim=0
+        logits = self.actor_head(embeddings).squeeze(-1)           # [n]
+
+        if training:
+            ratios = F.softmax(logits / temperature, dim=0)
+            noise = torch.randn_like(ratios) * 0.05
+            ratios = torch.clamp(ratios + noise, min=0.05)
+            ratios = ratios / ratios.sum()
+        else:
+            ratios = F.softmax(logits / 0.8, dim=0)
+            ratios = torch.clamp(ratios, min=0.1)
+            ratios = ratios / ratios.sum()
+
         value = self.critic(global_repr)
-        
         return ratios, value
 
 
@@ -50,27 +60,36 @@ class SatelliteTrainer:
         self.beta1 = beta1
 
     def train_step(self, ratios, value, augmented_candidates):
-        """Calcula la utilidad y actualiza la red neuronal."""
-        # Extraer métricas de los candidatos para la función de entrenamiento
         avg_throughput = sum([c['throughput'] for c in augmented_candidates]) / len(augmented_candidates)
         avg_delay = sum([c['delay'] for c in augmented_candidates]) / len(augmented_candidates)
+
         
-        # Calcular Recompensa (Utility) usando consideraciones.py
-        reward = consideraciones.TrainingFunction(avg_throughput, avg_delay, self.beta1)
-        reward_tensor = torch.tensor([reward], dtype=torch.float32).to(value.device)
+        base_reward = consideraciones.TrainingFunction(avg_throughput, avg_delay, self.beta1)
         
-        # Loss de Actor-Critic
+        
+        entropy = -(ratios * torch.log(ratios + 1e-9)).sum()
+        active_routes = (ratios > 0.05).sum().float()
+        diversity_bonus = active_routes / len(ratios)
+        
+        
+        reward = base_reward + (entropy * 0.3) + (diversity_bonus * 0.2)
+        
+        reward_tensor = torch.tensor([reward], dtype=torch.float32, device=value.device)
+
         advantage = reward_tensor - value.detach()
-        loss_actor = -torch.log(ratios).mean() * advantage
+        loss_actor = -torch.log(ratios + 1e-9).mean() * advantage
         loss_critic = F.mse_loss(value, reward_tensor)
+
         
-        total_loss = loss_actor + loss_critic
-        
+        concentration_penalty = -entropy * 0.1
+
+        total_loss = loss_actor + loss_critic + concentration_penalty
         self.optimizer.zero_grad()
         total_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.agent.parameters(), max_norm=1.0)
         self.optimizer.step()
-        
-        return reward
+
+        return reward.item() if isinstance(reward, torch.Tensor) else reward
 
 # --- CLASE BRIDGE: ROUTER INTELIGENTE ---
 class IntelligentRouter:
@@ -182,7 +201,7 @@ if __name__ == "__main__":
         history = {'epochs': [], 'rewards': [], 'throughputs': []}
         log_file = "drl_benchmark_log.txt"
 
-        for epoch in range(1000):
+        for epoch in range(100000):
             initialTime = time.time()
             
             
@@ -209,7 +228,8 @@ if __name__ == "__main__":
                 state_tensor = torch.tensor(features, dtype=torch.float32).to(router.device)
                 adj_tensor = adj.to(router.device) if adj is not None else None
 
-                ratios, value = router.agent(state_tensor, adj_tensor)
+                temperature = max(2.0 - (epoch / 500), 0.5)
+                ratios, value = router.agent(state_tensor, adj_tensor, temperature=temperature, training=True)
                 reward = router.trainer.train_step(ratios, value, candidates)
                 is_best = router.save_if_best(reward)
 
@@ -263,19 +283,17 @@ if __name__ == "__main__":
 
    
             # En modo inferencia no llamar al trainer
-            with torch.no_grad(): # Desactiva el cálculo de gradientes para ahorrar memoria
-                ratios, _ = router.agent(state_tensor, adj_tensor)
-    
+            with torch.no_grad():
+                ratios, _ = router.agent(state_tensor, adj_tensor, temperature=0.8, training=False)
             ratios_np = ratios.cpu().numpy().round(3).tolist()
 
             print(f"\n--- Resultados de Inferencia ---")
             print(f"Origen: P{src_p}S{src_s} | Destino: P{dst_p}S{dst_s}")
-            for i, cand in enumerate(candidates):
-                print(f"Ruta {i+1} ({cand['estrategia']}): Ratio Asignado: {ratios_np[i]}")
+            for cand, r in zip(candidates, ratios_np):
+                print(f"Ruta ({cand['estrategia']}): Ratio Asignado: {r}")
                 print(f"   Hops: {cand['hops']} | Delay: {cand['delay']:.4f}s | TP: {cand['throughput']:.2f}")
 
             
         else:
             print("[!] No se encontraron rutas válidas (posible desconexión total por fallos).")
-       
-        
+
