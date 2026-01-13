@@ -1,15 +1,95 @@
-html, body, #root {
+/* App.css */
+#root {
+  width: 100%;
+  height: 100vh;
   margin: 0;
   padding: 0;
-  height: 100%;
-  width: 100%;
+  background-color: #000;
   overflow: hidden;
-  background: #000000;
 }
 
-#sphere-container {
-  z-index: 10;
-  width: 100%; /* Full width */
-  height: 100%; /* Set a fixed height or use a percentage */
-  position: relative; /* Ensure it can contain absolutely positioned children */
+.main-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* El Canvas debe ocupar todo el fondo */
+canvas {
+  display: block; /* Elimina márgenes extraños */
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0; /* Al fondo */
+}
+
+/* Overlay para la UI */
+.ui-overlay {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10; /* Por encima del canvas */
+  color: white;
+  background: rgba(0, 0, 0, 0.6); /* Fondo semitransparente */
+  padding: 20px;
+  border-radius: 10px;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 300px;
+}
+
+h1 {
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  text-align: center;
+  color: #00d8ff; /* Color react */
+}
+
+.upload-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.file-input {
+  color: white;
+}
+
+.file-input::file-selector-button {
+    background: #444;
+    border: 1px solid #666;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.upload-btn {
+  padding: 10px;
+  background: linear-gradient(45deg, #00d8ff, #005bea);
+  border: none;
+  border-radius: 5px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stats-panel {
+  border-top: 1px solid rgba(255,255,255,0.3);
+  padding-top: 15px;
+  font-size: 0.9rem;
+}
+.stats-panel h3 {
+    margin-top: 0;
+    color: #ffd700;
+}
+.stats-panel p {
+    margin: 5px 0;
 }
