@@ -9,16 +9,26 @@ from fastapi.middleware.cors import CORSMiddleware
 import simpy
 import shutil
 
-
+#TODO agreggar /health endpoint para confirmar el backend corriendo
 from transmisor import TransmissionSimulator
 from satelites import ConstellationManager
 from router import IntelligentRouter
 
 app = FastAPI()
 
+ALLOWED_ORIGINS = [
+
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    #TODO Insertar Web service ->""
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = ["*"],
+    allow_origins = ALLOWED_ORIGINS,
     allow_credentials = True,
     allow_methods = ["*"],
     allow_headers = ["*"]
@@ -26,6 +36,11 @@ app.add_middleware(
 
 global_router = None
 global_constellation_template = None
+
+@app.get("/health")
+def health():
+    return {"status" : "ok"}
+
 
 @app.on_event("startup")
 def load_model():
@@ -40,6 +55,8 @@ def load_model():
     # Router en modo inferencia 
     global_router = IntelligentRouter(manager, train_mode=False)
     print("[API] API cargada.")
+
+
 
 @app.post("/api/transmit")
 
