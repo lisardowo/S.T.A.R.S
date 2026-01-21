@@ -54,7 +54,6 @@ S.T.A.R.S/
 ├── src/                        # React frontend
 │   ├── App.jsx               # Main application component
 │   ├── earth.jsx             # Earth visualization
-│   ├── Galaxy.jsx            # Galaxy/space background
 │   ├── Satellites.jsx        # Satellite visualization
 │   ├── main.jsx              # Entry point
 │   └── utils.js              # Utility functions
