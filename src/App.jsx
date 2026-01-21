@@ -20,25 +20,25 @@ function App() {
 
   // Manejar botón de Upload
   const handleUpload = async () => {
-    if (!file) return alert("Por favor selecciona un archivo primero");
+    if (!file) return alert("Please upload a file first");
 
     setIsLoading(true);
     setSimulationData(null); // Limpiar visualización anterior
     
     const formData = new FormData();
-    formData.append("file", file); // El nombre "file" debe coincidir con tu backend FastAPI
+    formData.append("file", file); 
 
     try {
-      // Asegúrate de que esta URL apunte a tu servidor Python
+      
       const response = await fetch("http://localhost:8000/api/transmit", {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Error en la transmisión con el backend");
+      if (!response.ok) throw new Error("Error conecting to the API");
 
       const data = await response.json();
-      console.log("Datos recibidos del backend:", data);
+      console.log("Data received from backend:", data);
       
       // Guardar datos de la simulacion
       setSimulationData(data);
@@ -46,7 +46,7 @@ function App() {
 
     } catch (error) {
       console.error("Error:", error);
-      alert("Falló la simulación. Revisa la consola.");
+      alert("Simulation has failed. Check the console .");
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +58,7 @@ function App() {
     <div className="main-container">
       <Galaxy/>
       <div className="ui-overlay">
-        <h1>Transmisión Satelital DRL</h1>
+        <h1>S.T.A.R.S satelitall simulation</h1>
         
         <div className="upload-controls">
           <input 
@@ -72,20 +72,24 @@ function App() {
             disabled={isLoading || !file}
             className="upload-btn"
           >
-            {isLoading ? "Procesando y Simulando..." : "Transmitir Archivo"}
+            {isLoading ? "Processing" : "Send File"}
           </button>
         </div>
 
         {/* Panel de estadísticas si hay resultados */}
         {stats && (
           <div className="stats-panel">
-            <h3>Resultados de Transmisión:</h3>
-            <p>Archivo: {stats.filename}</p>
-            <p>Tamaño Original: {(stats.original_size / 1024).toFixed(2)} KB</p>
-            <p>Tamaño Comprimido: {(stats.compressed_size / 1024).toFixed(2)} KB</p>
-            <p>Fragmentos: {stats.total_fragments}</p>
-            <p>Tiempo Proc. (C++): {stats.processing_time_ms.toFixed(2)} ms</p>
-          </div>
+            <h3>Transsmision Results:</h3>
+            <p>File: {stats.filename}</p>
+            <p>Original Size: {(stats.original_size / 1024).toFixed(2)} KB</p>
+            <p>Compressed Size: {(stats.compressed_size / 1024).toFixed(2)} KB</p>
+            <p>Fragments: {stats.total_fragments}</p>
+            <p>Procces Time. (C++): {stats.processing_time_ms.toFixed(2)} ms</p>
+          
+          <button>
+            download JSON
+          </button>
+        </div>
         )}
       </div>
 
