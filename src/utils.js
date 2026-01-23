@@ -15,18 +15,17 @@ alert(disclaimer);
 
 //variables de configuracion
 //TODO modificar las variables para que sean procedurales
-const TOTAL_PLANES = 3; 
-const SATS_PER_PLANE = 22; 
+export const PLANES = 24;
+export const SATS_PER_PLANE = 66;
 const EARTH_RADIUS = 1; 
 const ORBIT_ALTITUDE = 0.3; //Altitud a la que orbitan los satelites
 const ORBIT_RADIUS = EARTH_RADIUS + ORBIT_ALTITUDE;
-
 //Funcion para convertir la id (plano, índice) a posiciones xyz
  
 export function getSatellitePosition(planeIdx, satIdx) {
     // 1. Calcular ángulos esféricos (Phi y Theta)
     // Espaciamos los planos equitativamente alrededor del ecuador (Theta)
-    const theta = (planeIdx / TOTAL_PLANES) * Math.PI * 2;
+    const theta = (planeIdx / PLANES) * Math.PI * 2;
 
     // Espaciamos los satélites dentro del plano a lo largo de la órbita (Phi)
     // Añadimos un pequeño desfase (phase shift) entre planos para que no parezca una cuadrícula
