@@ -3,11 +3,11 @@ import * as THREE from 'three';
 
 
 
-/*const disclaimer = "Esta es la version web publicada mediante onrender, dado a limitaciones tecnicas, \
-la comunicacion podria fallar con la API si ha pasado mucho tiempo desde su ultimo uso dando una apariencia del codigo no funcionando\
- Yakucode recomienda ampliamente correr la version instalada(personal) para asegurar la funcionalidad del sistema\
- las instrucciones las puede encontrar en el readme del repositorio original"
-alert(disclaimer);*/
+const disclaimer = "you are using the web version (published by onrender), due to technical limitations, \
+comunication with the API could not properly work if its been time since the last time it was used. This may give the appeareance of the code not working\
+Yakucode explicitly suggest run the installed version(personal) in order to assure the stability of the system\
+instructions will be found in the readme of the original repository"
+alert(disclaimer);
 
 // ----- ELIMINAR EL COMENTARIO ARRIBA PARA LA PUBLICACION FINAL ------
 
