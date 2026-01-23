@@ -1,4 +1,4 @@
-// src/App.jsx
+
 import React, { useState, Suspense, useEffect } from 'react'
 // Helper to generate random box-shadow for stars
 function generateBoxShadow(numStars, w = 2000, h = 2000) {
@@ -10,6 +10,7 @@ function generateBoxShadow(numStars, w = 2000, h = 2000) {
   }
   return arr.join(', ');
 }
+
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei';
 import Earth from './earth.jsx'
@@ -31,7 +32,7 @@ function App() {
         big: generateBoxShadow(100)
       });
     }, []);
-    
+
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [simulationData, setSimulationData] = useState(null); //use state to store JSON

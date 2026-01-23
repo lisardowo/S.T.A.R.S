@@ -1,8 +1,5 @@
 
 #TODO Comentar y traducir todos los codigos a ingles
-#TODO Eliminar Galaxy component e implementar un fondo de estrellas
-#TODO Mostrar TODOS los satelites de la constelacion, no solo
-#  los usados para la transmision
-#TODO mostrar todos los satelites no solo los usados para la transmision
-#TODO Verificar los problemas de rendimiento en el renderizado
+
+
 #TODO modificar la imagen SVG del codigo

@@ -89,55 +89,101 @@ const Satellites = ({ data }) => {
     });
 
 
-    // PROCESAR RUTAS 
-    const staticElements = useMemo(() => {
-        const elements = [];
-        const processedSatellites = new Set(); // no dibujar el mismo satelite
+    // 1. Calcular todos los satélites posibles (por ejemplo, 6 planos x 11 sats)
+    // Puedes ajustar estos valores según tu constelación
+    const PLANES = 24;
+    const SATS_PER_PLANE = 66;
 
-        routes.forEach((route, idx) => {
-            const routeColor = new THREE.Color(route.color);
-            const linePoints = [];
-
-            // Extraer nodos únicos de los enlaces de la ruta
+    // 2. Calcular el set de satélites usados en las rutas
+    const usedSatellites = useMemo(() => {
+        const set = new Set();
+        routes.forEach(route => {
             route.path.forEach(linkStr => {
                 const [u, v] = linkStr.split('-');
-                [u, v].forEach(nodeId => {
-                    if (!processedSatellites.has(nodeId)) {
-                        processedSatellites.add(nodeId);
-                        const coords = parseNodeId(nodeId);
-                        const pos = getSatellitePosition(coords.plane, coords.sat);
-                        
-                        // Añadir satélite (esfera estática)
-                        elements.push(
-                            <mesh key={`sat-${nodeId}`} position={pos}>
-                                <sphereGeometry args={[0.01, 16, 16]} />
-                                <meshStandardMaterial color="#aaaaaa" emissive="#444444" />
-                            </mesh>
-                        );
-                    }
-                });
-                 // Construir puntos para la línea
-                 const uCoords = parseNodeId(u);
-                 const vCoords = parseNodeId(v);
-                 linePoints.push(getSatellitePosition(uCoords.plane, uCoords.sat));
-                 linePoints.push(getSatellitePosition(vCoords.plane, vCoords.sat));
+                set.add(u);
+                set.add(v);
             });
-
-            // Añadir línea de la ruta
-            if (linePoints.length > 0) {
-                 // Usamos una línea simple de Three.js. 
-                 // Para líneas gruesas se necesitaría 'three-stdlib' Line2, pero esto es más simple.
-                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-                 elements.push(
-                    <line key={`route-line-${idx}`}>
-                        <primitive object={lineGeometry} />
-                        <lineBasicMaterial color={routeColor} linewidth={2} opacity={0.6} transparent />
-                    </line>
-                 );
-            }
         });
-        return elements;
+        return set;
     }, [routes]);
+
+    // 3. Renderizar todos los satélites, destacando los usados y mostrando la malla completa
+    const staticElements = useMemo(() => {
+        const elements = [];
+        
+        // Renderizar todos los satélites
+        for (let plane = 0; plane < PLANES; plane++) {
+            for (let sat = 0; sat < SATS_PER_PLANE; sat++) {
+                const nodeId = `S${plane}_${sat}`;
+                const pos = getSatellitePosition(plane, sat);
+                const isUsed = usedSatellites.has(nodeId);
+                
+                elements.push(
+                    <mesh key={`sat-${nodeId}`} position={pos}>
+                        <sphereGeometry args={[isUsed ? 0.015 : 0.008, 16, 16]} />
+                        <meshStandardMaterial 
+                            color={isUsed ? "#FFFF00" : "#666666"}
+                            emissive={isUsed ? "#FFFF00" : "#333333"}
+                            emissiveIntensity={isUsed ? 2.0 : 0.3}
+                        />
+                    </mesh>
+                );
+            }
+        }
+
+        // Conexiones intra-plano (dentro de cada plano orbital)
+        for (let plane = 0; plane < PLANES; plane++) {
+            for (let sat = 0; sat < SATS_PER_PLANE; sat++) {
+                const nextSat = (sat + 1) % SATS_PER_PLANE;
+                const pos1 = getSatellitePosition(plane, sat);
+                const pos2 = getSatellitePosition(plane, nextSat);
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([pos1, pos2]);
+                elements.push(
+                    <line key={`intra-${plane}-${sat}`}>
+                        <primitive object={lineGeometry} />
+                        <lineBasicMaterial color="#4a4a4a" opacity={0.2} transparent />
+                    </line>
+                );
+            }
+        }
+
+        // Conexiones inter-plano (entre planos adyacentes)
+        for (let plane = 0; plane < PLANES; plane++) {
+            const nextPlane = (plane + 1) % PLANES;
+            for (let sat = 0; sat < SATS_PER_PLANE; sat++) {
+                const pos1 = getSatellitePosition(plane, sat);
+                const pos2 = getSatellitePosition(nextPlane, sat);
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([pos1, pos2]);
+                elements.push(
+                    <line key={`inter-${plane}-${sat}`}>
+                        <primitive object={lineGeometry} />
+                        <lineBasicMaterial color="#3a3a3a" opacity={0.15} transparent />
+                    </line>
+                );
+            }
+        }
+
+        // Añadir las líneas de las rutas (cada una con su color)
+        routes.forEach((route, idx) => {
+            const routeColor = route.color; // Usar directamente el string hex
+            route.path.forEach(linkStr => {
+                const [u, v] = linkStr.split('-');
+                const uCoords = parseNodeId(u);
+                const vCoords = parseNodeId(v);
+                const pos1 = getSatellitePosition(uCoords.plane, uCoords.sat);
+                const pos2 = getSatellitePosition(vCoords.plane, vCoords.sat);
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([pos1, pos2]);
+                elements.push(
+                    <line key={`route-${idx}-${linkStr}`}>
+                        <primitive object={lineGeometry} />
+                        <lineBasicMaterial color={routeColor} linewidth={3} opacity={0.8} transparent />
+                    </line>
+                );
+            });
+        });
+        
+        return elements;
+    }, [routes, usedSatellites]);
 
 
     // 2. PROCESAR PAQUETES ANIMADOS
