@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import simpy
 import shutil
 
-#TODO agreggar /health endpoint para confirmar el backend corriendo
+
 from transmisor import TransmissionSimulator
 from satelites import ConstellationManager
 from router import IntelligentRouter
@@ -19,12 +19,15 @@ app = FastAPI()
 ALLOWED_ORIGINS = [
 
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8000",
     "https://s-t-a-r-s-web.onrender.com/",
-    "https://s-t-a-r-s-web.onrender.com/api/transmit"
+    "https://s-t-a-r-s-web.onrender.com/api/transmit",
+    "https://s-t-a-r-s-web.onrender.com/"
+    "https://s.t.a.r.s-web.onrender.com"
 ]
 
 app.add_middleware(
