@@ -4,9 +4,10 @@ import * as THREE from 'three';
 
 
 const disclaimer = "you are using the web version (published by onrender), due to technical limitations, \
-comunication with the API could not properly work if its been time since the last time it was used. This may give the appeareance of the code not working\
+comunication with the API do not properly work (failing in the compression procces and lasting more that it should most of the time)\
 Yakucode explicitly suggest run the installed version(personal) in order to assure the stability of the system\
 instructions will be found in the readme of the original repository"
+
 alert(disclaimer);
 
 // ----- ELIMINAR EL COMENTARIO ARRIBA PARA LA PUBLICACION FINAL ------
