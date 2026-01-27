@@ -2,8 +2,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { getSatellitePosition, parseNodeId } from './utils';
-
+import { getSatellitePosition, parseNodeId, PLANES, SATS_PER_PLANE } from './utils';
 // Componente para un solo paquete animado
 const Packet = ({ routeData, timeline, simulationTime }) => {
     const meshRef = useRef();
@@ -89,10 +88,7 @@ const Satellites = ({ data }) => {
     });
 
 
-    // 1. Calcular todos los satélites posibles (por ejemplo, 6 planos x 11 sats)
-    // Puedes ajustar estos valores según tu constelación
-    const PLANES = 24;
-    const SATS_PER_PLANE = 66;
+   
 
     // 2. Calcular el set de satélites usados en las rutas
     const usedSatellites = useMemo(() => {

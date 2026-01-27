@@ -8,8 +8,8 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import simpy
 import shutil
+import random
 
-#TODO agreggar /health endpoint para confirmar el backend corriendo
 from transmisor import TransmissionSimulator
 from satelites import ConstellationManager
 from router import IntelligentRouter
@@ -19,11 +19,16 @@ app = FastAPI()
 ALLOWED_ORIGINS = [
 
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8000",
-    "https://s-t-a-r-s.onrender.com"
+    "https://s-t-a-r-s.onrender.com",
+    "https://s-t-a-r-s-web.onrender.com",
+    "https://s-t-a-r-s-web.onrender.com",
+    "https://s-t-a-r-s-web.onrender.com",
+    "https://s.t.a.r.s-web.onrender.com",
 ]
 
 app.add_middleware(
@@ -86,10 +91,8 @@ async def passData(file: UploadFile = File(...)):
         simulator = TransmissionSimulator(env, constellation, global_router)
         
         
-        src_p, src_s = 0, 0
-        dst_p, dst_s = 2, 5 #TODO importar NP y NS de constellation manager para generar proceduralmente la cantidad de planos y satelites
-                            #Tambien podria declararse eso localmente dado que somos nosotros quienes le pasan el parametro
-                            #o finalmente podria ser pasado por el front como un parametro
+        src_p, src_s = random.randint(0, constellation.planes -1),random.randint(0, constellation.sats_per_plane -1) 
+        dst_p, dst_s = random.randint(0, constellation.planes -1),random.randint(0, constellation.sats_per_plane -1) 
         
         # process_and_send debe ser adaptado ligeramente para devolver el valor al terminar
         proc = env.process(simulator.process_and_send(information, src_p, src_s, dst_p, dst_s))
