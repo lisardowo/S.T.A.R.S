@@ -2,6 +2,17 @@ import matplotlib.pyplot as plt
 import os
 import networkx as nx
 
+from collections import defaultdict
+import time
+
+
+def percentile(data, p):
+    if not data:
+        return 0.0
+    s = sorted(data)
+    k = int(round((p/100.0) * (len(s)-1)))
+    return s[k]
+
 class TrainingMonitoring:
     def plot_training_results(epochs, rewards, throughputs):
     fig, ax1 = plt.subplots(figsize=(10, 5))
@@ -95,3 +106,65 @@ def visualize_satellite_routes(candidates, n_planes, n_sats, src, dst):
 
 class Monitor:
     def __init__(self):
+        self.tx = []
+        self.counters = defaultdict(int)
+        self.hist = defaultdict(list)
+    
+
+    def start_tx (self, env_now, algorithm, src, dst, size_bytes):
+        ctx = {
+            "algorithm" : algorithm
+            "src" : src, "dst" : dst,
+            "size" : size_bytes,
+            "start" : env_now
+            "decision_ms" : #TODO agregar tiempo de decision
+            "hops" : [],
+            "hop_metrics" : [],
+            "succes" :  #TODO agregar status succes
+        }
+        ctx["t_decision_start_ns"] = time.perf_counter_ns()
+        return ctx
+    
+    def record_decision_end(self, ctx):
+        t0 = ctx.pop("t_decision_start_ns", None)
+        if t0 is not None:
+            ctx["decision_ms"] = (time.perf_counter_ns() - t0) /1e6
+    
+    def record_hop(self, ctx, u, v, metrics):
+        ctx["hops"].append((u,v))
+        ctx["hop_metrics"].append(metrics or {})
+        self.hist["q_delay"].append((metrics or {}).get("q_delay", 0.0))
+        self.hist["r_delay"].append((metrics or {}).get("r_delay", 0.0))
+        self.hist["distance"].append((metrics or {}).get("distance", 0.0))
+        self.hist["throughput"].append((metrics or {}).get("link_thorughput", 0.0))
+    
+    def end_tx(self, env_now, ctx, success, ref_cost = None, algorithm_cost = None):
+        ctx["end"] = env_now
+        ctx[succes] = success
+        ctx["e2e_latency"] = env_now - ctx["start"]
+        ctx["hop_count"] = len(ctx["hops"])
+        if ref_cost is not None and algorithm_cost is not None and ref_cost > 0:
+            ctx["path_stretch"] = algorithm_cost/ref_cost
+        self.tx.append(ctx)
+        self.counters[f"{tx_ctx['algo']}_total"] += 1
+        self.counters[f"{tx_ctx['algo']}_success"] += int(success)
+
+    def summary(self):
+        out = {"per_algorithm" : {}}
+        algorithms = {t["algorithm"] for t in self.tx}
+        for algorithm in algorithms:
+            e2e = [t["e2e_latency"] for t in self.tx if t["algorithm"] == algorithm]
+            hops = [t["hop_count"] for t in self.tx if t["algorithm"] == algorithm]
+            decs = [t["decision_ms"] for t in self.tx if t["algorithm"] == algorithm]
+            stretches = [t.get("path_stretch") for t in self.tx if t["algorithm"] == algorithm]
+            succ = self.counters.get(f"{algorithm}_succes", 0)
+            tot = self.counters.get(f"{algorithm}_total", 0)
+            out["per_algorithm"][algorithm] = {
+                "e2e_avg" : sum(e2e)/len(e2e) if e2e else 0.0,
+                "e2e_p95" : percentile(e2e, 95);
+                "hop_avg" : sum(hops)/len(hops) if hops else 0.0,
+                "decision_ms_avg" : sum(decs)/len(decs) if decs else 0.0,
+                "path_stretch_avg" : sum(stretches) /len(stretches) if stretches else None,
+                "success_rate" : succ /max(tot, 1)
+            }
+        return out
