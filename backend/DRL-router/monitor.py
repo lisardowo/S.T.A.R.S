@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import os
 import networkx as nx
 
-
-def plot_training_results(epochs, rewards, throughputs):
+class TrainingMonitoring:
+    def plot_training_results(epochs, rewards, throughputs):
     fig, ax1 = plt.subplots(figsize=(10, 5))
 
     # Eje para la Recompensa
@@ -92,3 +92,6 @@ def visualize_satellite_routes(candidates, n_planes, n_sats, src, dst):
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.3)
     plt.show()
+
+class Monitor:
+    def __init__(self):
