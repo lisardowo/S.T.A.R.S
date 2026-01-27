@@ -15,7 +15,6 @@ alert(disclaimer);
 
 
 //variables de configuracion
-//TODO modificar las variables para que sean procedurales
 export const PLANES = 24;
 export const SATS_PER_PLANE = 66;
 const EARTH_RADIUS = 1; 

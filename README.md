@@ -1,14 +1,14 @@
-# S.T.A.R.S - Satellite Traffic Analysis & Routing System
+# S.T.A.R.S - Satelite and Telecomunication Automatic Relay System
 
 A student-built tool designed to optimize satellite communication routing using Deep Reinforcement Learning. Built during a hackathon with the theme "Make tools that help students."
 
 ## Team Members
 
-Lisardo Sobrado Morales, Jorge Alberto Rivera Ahumada , Pavel --seguir --
+Lisardo Sobrado Morales, Jorge Alberto Rivera Ahumada , Pavel Bautista Fuentes, Diego del Rio Pulido 
 
 ## Overview
 
-S.T.A.R.S (Satellite Traffic Analysis & Routing System) combines deep reinforcement learning with satellite communication routing to provide intelligent traffic management and optimization. The system:
+S.T.A.R.S (Satellite and Telecomunication Automatic Relay System) combines deep reinforcement learning with satellite communication routing to provide intelligent traffic management and optimization. The system:
 - Simulates satellite networks and orbital mechanics
 - Uses DRL agents to optimize routing decisions
 - Provides real-time telemetry monitoring and analysis
@@ -125,8 +125,15 @@ python server.py
 The backend will be available at `http://localhost:8000`
 
 Verify the backend is running:
+
+#### For local
 ```bash
 curl http://localhost:8000/health
+# Should return: {"status":"ok"}
+```
+#### For web
+```bash
+curl http://s-t-a-r-s.onrender.com/health
 # Should return: {"status":"ok"}
 ```
 
@@ -154,6 +161,8 @@ The frontend will be available at `http://localhost:5173`
 The backend provides the following endpoints:
 
 - `POST /api/transmit` - Process and send data through the constellation
+
+- `GET /health` - Returns the current state of the service (if on or off)
 
 
 ## Technologies Used
@@ -217,7 +226,7 @@ satellital communication, having a faster and more convenient way to transsmit d
 To make S.T.A.R.S more robust and closer to a production-ready system, these are the areas we plan to work on after the hackathon:
 
 - API endpoints to implement:
-   - `GET /health` — Health check endpoint
+  
    - `POST /route` — Request optimal routing decision from the DRL agent
    - `GET /telemetry` — Get current telemetry data
    - `POST /telemetry/upload` — Upload telemetry CSV file

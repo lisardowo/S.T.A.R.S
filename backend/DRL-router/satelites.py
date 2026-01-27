@@ -2,8 +2,8 @@ import simpy
 import random
 
 # --- CONSTANTES HARCODEDAS (Como solicitado) ---
-NUMBER_OF_PLANES = 6    # N_P
-NUMBER_OF_SATS = 11     # N_S
+NUMBER_OF_PLANES = 24   # N_P
+NUMBER_OF_SATS = 66    # N_S
 # -----------------------------------------------
 
 class Satellite:
