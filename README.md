@@ -1,6 +1,6 @@
 # S.T.A.R.S - Satelite and Telecomunication Automatic Relay System
 
-A student-built tool designed to optimize satellite communication routing using Deep Reinforcement Learning. Built during a hackathon with the theme "Make tools that help students."
+A student-built tool designed to optimize satellite communication routing using Deep Reinforcement Learning. Built during a hackathon with the theme "ORBIT."
 
 ## Team Members
 
