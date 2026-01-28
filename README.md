@@ -96,6 +96,49 @@ S.T.A.R.S/
    pip install -r requirements.txt
    ```
 
+5. Build and install the local C++ module (`cpp_core`) via pybind11:
+   
+    The C++ core is compiled per-machine. To ensure `transmisor.py` can import `cpp_core` on your system, build it locally.
+
+    - Install system toolchain and LZ4 development headers (Debian/Ubuntu):
+       ```bash
+       sudo apt update
+       sudo apt install -y build-essential liblz4-dev
+       ```
+       Fedora:
+       ```bash
+       sudo dnf install -y gcc-c++ lz4-devel
+       ```
+       Arch:
+       ```bash
+       sudo pacman -S --needed base-devel lz4
+       ```
+
+    - Ensure your virtual environment is active and PyPI deps installed (includes `pybind11`):
+       ```bash
+       source .venv/bin/activate
+       pip install -r requirements.txt
+       ```
+
+    - Build and install the extension into your venv (recommended):
+       ```bash
+       cd backend/pybindBuild/src
+       pip install .
+       ```
+       This compiles and installs `cpp_core` into your environment’s site-packages.
+
+    - Optional: build in-place (drops a `.so` next to sources):
+       ```bash
+       python setup.py build_ext --inplace
+       ```
+       If you use in-place builds, make sure the module is importable (e.g., add `backend/pybindBuild/src` to `PYTHONPATH`) or prefer `pip install .` above.
+
+    - Verify installation:
+       ```bash
+       python -c "import cpp_core; print('cpp_core OK')"
+       ```
+
+
 ### Frontend Setup
 
 1. Navigate to the project root directory:
