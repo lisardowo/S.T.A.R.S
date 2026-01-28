@@ -1,6 +1,6 @@
 import math
 import time
-
+import random
 import formulas  
 
 def run_test():
@@ -12,12 +12,13 @@ def run_test():
 
     # 1. Configuración del Escenario (Basado en Iridium según Tabla 1 del documento)
     #[cite: 538]: Iridium tiene 6 planos, 11 satélites por plano.
-    N_P = 6  # NumberOfPlanes
-    N_S = 11  # NumberOfSatelites
+    N_P = 24  # NumberOfPlanes
+    N_S = 66  # NumberOfSatelites
     
-    # Definimos Nodo Origen (Plano 0, Satélite 0) y Destino (Plano 3, Satélite 5)
-    src_plane, src_sat = 0, 0
-    dst_plane, dst_sat = 3, 5
+    
+    N_P, N_S = constellation.planes, constellation.sats_per_plane
+    src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
+    dst_p, dst_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
 
     print(f"[*] Configuración de Constelación:")
     print(f"    - Planos (N_P): {N_P}")
