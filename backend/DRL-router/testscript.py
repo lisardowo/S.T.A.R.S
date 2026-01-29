@@ -1,7 +1,79 @@
 import math
 import time
 import random
-import formulas  
+import os
+import sys
+
+import torch
+import simpy
+
+# Ajusta sys.path para importar módulos del backend
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "dijkstra"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "DRL-router"))
+
+from dijk_alg import buildGraphFromConstellation, dijkstra
+import router
+import satelites
+import monitor
+
+def benchmark(num_trials = 1000):
+    env = simpy.Environment()
+    constellation = satelites.ConstellationManager(env)
+
+    Router = router.IntelligentRouter(constellation, train_mode = False)
+    mon = monitor.Monitor()
+
+    for i in range(num_trials):
+        
+        env.run(until = env.now + 1)
+
+        N_P, N_S = constellation.planes, constellation.sats_per_plane
+        src_p, src_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
+        dst_p , dst_s = random.randint(0, N_P-1), random.randint(0, N_S-1)
+        src_id, dst_id = f"S{src_p}_{src_s}", f"S{dst_p}_{dst_s}"
+
+        ctx_drl = mon.start_tx(env.now, "DRL", src_id, dst_id, size_bytes = 1024)
+        candidates, features, adj = Router.find_best_routes(src_p, src_s, dst_p ,dst_s)
+        algorithm_cost = float("inf")
+
+        if candidates:
+            state_tensor = torch.tensor(features, dtype = torch.float32).to(Router.device)
+            adj_tensor = adj.to(Router.device) if adj is not None else None
+            with torch.no_grad():
+                ratios, _ = Router.agent(state_tensor, adj_tensor, training = False)
+            ratios_np = ratios.cpu().numpy()
+            best_idx = int(ratios_np.argmax())
+            best_route =  candidates[best_idx]
+            mon.record_decision_end(ctx_drl)
+            algorithm_cost = best_route["delay"]
+            for link in best_route["enlaces"]:
+                u, v = link.split("-") # or link.split("-")
+                m = constellation.get_link_metrics(u , v)
+                mon.record_hop(ctx_drl, u , v , m)
+        else:
+            mon.record_decision_end(ctx_drl)
+
+       
+        G = buildGraphFromConstellation(constellation)
+        ctx_dij = mon.start_tx(env.now, "Dijkstra",src_id, dst_id, size_bytes=1024)
+        path, dij_cost = dijkstra(G, src_id, dst_id)
+        mon.record_decision_end(ctx_dij)
+
+        if path:
+            for i in range(len(path) - 1):
+                u, v = path[i], path[i+1]
+                m = constellation.get_link_metrics(u, v)
+                mon.record_hop(ctx_dij, u , v , m)
+            mon.end_tx(env.now,ctx_dij, success = True)
+        else:
+            mon.end_tx(env.now, ctx_dij, success=False)
+        mon.end_tx(env.now, ctx_drl, success = (algorithm_cost < float("inf")), ref_cost=dij_cost, algorithm_cost=algorithm_cost)
+    
+    print(mon.summary())
+
+
+
+
 
 def run_test():
     start_time = time.time()
@@ -81,78 +153,6 @@ def run_test():
     print("-" * 60)
     print(f"[*] Ejecución numérica completada en {execution_time:.6f} segundos")
     print("-" * 60) #TODO corregir el testciprt para matchear la version actual del api
-"""1ara resaltarla
-    # Esto es una reconstrucción lógica basada en los resultados de tus fórmulas
-    # Calculamos el costo de las 4 opciones posibles
-    paths_costs = {
-        'West + NW': h_hops['west'] + v_hops['north_west'],
-        'West + SW': h_hops['west'] + v_hops['south_west'],
-        'East + NE': h_hops['east'] + v_hops['north_east'],
-        'East + SE': h_hops['east'] + v_hops['south_east']
-    }
-    
-    best_strategy = formulas.GetOptimalPaths(h_hops, v_hops, SubOptimalPaths=3)[0]
-    print(f"[*] Estrategia ganadora para visualización: {best_strategy}")
-
-    # Lógica simple para dibujar el camino (Pathfinding simulado basado en la estrategia)
-    path_nodes = [(src_p, src_s)]
-    curr_p, curr_s = src_p, src_s
-    
-    # Decodificar estrategia
-    direction = best_strategy.split(' + ')
-    h_dir = direction[0] # West o East
-    v_dir = direction[1] # NW, SW, NE, SE
-    
-    # 1. Moverse horizontalmente
-    steps_h = h_hops['west'] if h_dir == 'West' else h_hops['east']
-    for _ in range(steps_h):
-        if h_dir == 'West':
-            curr_p = (curr_p - 1) % N_P
-        else:
-            curr_p = (curr_p + 1) % N_P
-        path_nodes.append((curr_p, curr_s))
-        
-    # 2. Moverse verticalmente
-    # Nota: NW implica moverse al norte en satélites. SW al sur.
-    steps_v = 0
-    if v_dir == 'NW': steps_v = v_hops['north_west']
-    elif v_dir == 'SW': steps_v = v_hops['south_west']
-    elif v_dir == 'NE': steps_v = v_hops['north_east']
-    elif v_dir == 'SE': steps_v = v_hops['south_east']
-    
-    # Dirección vertical: Asumimos índices crecientes van al "Norte" (o Sur dependiendo convención)
-    # En grafos grid, y+1 es "arriba".
-    vertical_step = 1 if 'N' in v_dir else -1 # Simplificación visual
-    
-    for _ in range(steps_v):
-        curr_s = (curr_s + vertical_step) % N_S
-        path_nodes.append((curr_p, curr_s))
-
-    # Dibujar Camino
-    path_edges = list(zip(path_nodes, path_nodes[1:]))
-    nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='gold', width=3)
-    nx.draw_networkx_nodes(G, pos, nodelist=path_nodes, node_color='yellow', node_size=100)
-
-    # Dibujar Origen y Destino
-    nx.draw_networkx_nodes(G, pos, nodelist=[(src_p, src_s)], node_color='green', label='Source', node_size=500)
-    nx.draw_networkx_nodes(G, pos, nodelist=[(dst_p, dst_s)], node_color='red', label='Dest', node_size=500)
-
-    # Etiquetas
-    labels = {node: f"{node}" for node in G.nodes() if node in path_nodes or node == (src_p, src_s) or node == (dst_p, dst_s)}
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=8)
-
-    plt.title(f"Visualización de Ruta Satelital (Estrategia: {best_strategy})")
-    plt.xlabel("Planos Orbitales (Inter-plane)")
-    plt.ylabel("Satélites en Plano (Intra-plane)")
-    plt.legend(["Nodos", "Enlaces", "Ruta", "Saltos", "Origen", "Destino"])
-    plt.grid(True, linestyle='--', alpha=0.5)
-    
-    print("[*] Gráfico generado. Cerrar ventana para terminar.")
-    plt.show()
 
 if __name__ == "__main__":
-    run_test()
-#- ---- -- -- -- Debug code for formulas.py here - ---- -- -- --
-
-"""
-run_test()
+    benchmark()
