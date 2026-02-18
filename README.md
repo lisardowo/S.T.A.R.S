@@ -78,7 +78,7 @@ S.T.A.R.S/
 
 1. Navigate to the backend directory:
    ```bash
-   cd backend
+   cd S.T.A.R.S/backend
    ```
 
 2. Create a virtual environment:
