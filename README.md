@@ -2,6 +2,26 @@
 
 A student-built tool designed to optimize satellite communication routing using Deep Reinforcement Learning. Built during a hackathon with the theme "ORBIT."
 
+# **IMPORTANT** Use Information/Considerations
+
+This project is designed with real-world (IRL) satellite constellation use in mind, but the current workflow is based on a web demo + backend simulation.
+
+Important notes when testing the project:
+- The frontend and backend together start a simulation environment where you can upload a CSV file and test intelligent routing behavior through the frontend.
+- Inside the cloned repository, you can find a sample file at `backend/pybindBuild/data/input/telemetry.csv`. This file contains simulated satellite telemetry (randomized values) so you can quickly test the system with the frontend **Upload File** button.
+- The backend and compression algorithms are implemented in C++ for performance reasons.
+- Because of this, the compiled C++ module is currently not portable and may fail on systems different from the original development environment.
+- For simplicity at this stage, compression features are expected to fail in external environments.
+- Intelligent routing will still execute successfully, even when compression is unavailable.
+- A local build script for compiling the C++ module on each target machine is planned, but it is not implemented yet. Until then, compression-related functionality will not work.
+- A already online test playground is in [https://s-t-a-r-s-web.onrender.com/](https://s-t-a-r-s-web.onrender.com/) **TO USE THIS PLAYGROUND** the user needs to manually start the backend with the command :
+```bash
+   curl https://s-t-a-r-s.onrender.com/health
+   ```
+*run the command twice may be needed if the first one is stuck, the awakening of the backend can also be made just by entering to "https://s-t-a-r-s.onrender.com/health" in the browser 
+
+finally, await for a response code that looks like this : " {status: ok} ", when the response code is in you can enter in the [web-demo](https://s-t-a-r-s-web.onrender.com/) and make use of the uploaded version
+
 ## Team Members
 
 Lisardo Sobrado Morales, Jorge Alberto Rivera Ahumada , Pavel Bautista Fuentes, Diego del Rio Pulido 
